@@ -1,0 +1,159 @@
+import copy
+import enum
+import typing
+
+import python_util.reflection.reflection_utils
+from python_di.configs.base_config import DiConfiguration
+from python_di.configs.constructable import ConstructableMarker
+from python_di.inject.injector_provider import InjectionContext
+from python_util.logger.logger import LoggerFacade
+from python_util.reflection.reflection_utils import get_all_fn_param_types_no_default
+import injector
+
+
+class DiUtilConstants(enum.Enum):
+    profile = enum.auto()
+    inject_context = enum.auto()
+    wrapped_fn = enum.auto()
+    injectable_profile = enum.auto()
+    prefix_name = enum.auto()
+    proxied = enum.auto()
+    wrapped = enum.auto()
+    is_bean = enum.auto()
+    is_lazy = enum.auto()
+    is_injectable = enum.auto()
+    class_configs = enum.auto()
+    post_construct = enum.auto()
+    type_id = enum.auto()
+    subs = enum.auto()
+
+
+def get_wrapped_fn(fn):
+    if hasattr(fn, DiUtilConstants.wrapped_fn.name):
+        fn = getattr(fn, DiUtilConstants.wrapped_fn.name)
+    wrapped = {i: v for i, v in get_all_fn_param_types_no_default(fn).items()
+               if i != 'self' and i != 'args' and i != 'kwargs'}
+    return fn, wrapped
+
+
+def get_underlying(cls):
+    if hasattr(cls, DiUtilConstants.proxied.name):
+        return getattr(cls, DiUtilConstants.proxied.name)
+    else:
+        cls.proxied = cls
+    return cls
+
+
+class BeanFactoryProvider:
+
+    def __init__(self, value: typing.Callable[[DiConfiguration], injector.CallableProvider], profile: str):
+        self.profile = profile
+        self.value = value
+
+    def build(self, config: DiConfiguration) -> injector.CallableProvider:
+        return self.value(config)
+
+
+def retrieve_callable_provider(v, profile) -> BeanFactoryProvider:
+    return BeanFactoryProvider(lambda config: create_callable_provider_curry(v, profile, config), profile)
+
+
+def create_callable_provider_curry(v, profile, config):
+    return injector.CallableProvider(lambda: v(**create_callable_provider(v, profile, config)))
+
+
+def create_callable_provider(v, profile, config):
+    provider_created = retrieve_factory(v, profile)[1]
+    provider_created['self'] = config
+    return provider_created
+
+
+def retrieve_factory(v, profile):
+    to_construct = {}
+    do_inject = False
+    items = getattr(v, DiUtilConstants.wrapped.name).items()
+    for key, val in items:
+        if key == 'self' or key == 'args' or key == 'kwargs':
+            continue
+        try:
+            LoggerFacade.info(f"Retrieving bean: {val} for bean factory: {v}.")
+            found = InjectionContext.get_interface(val, profile)
+            assert found is not None
+            to_construct[key] = found
+            do_inject = True
+        except Exception as e:
+            LoggerFacade.warn(f"Failed to initialize test configuration {v} from getting {val}: {e}.")
+            to_construct[key] = None
+            do_inject = False
+            break
+    return do_inject, to_construct
+
+
+def get_constructable(tys):
+    count = 0
+    for ty in tys:
+        if isinstance(ty, dict) and ConstructableMarker in ty.keys():
+            return ty, count
+        count += 1
+    return None, None
+
+
+def add_constructable(underlying, constructable):
+    if hasattr(underlying, DiUtilConstants.subs.name):
+        for t in underlying.subs:
+            if isinstance(t, dict) and ConstructableMarker in t.keys():
+                LoggerFacade.info(f"Adding constructable {t}.")
+                t[ConstructableMarker].append(constructable[ConstructableMarker])
+
+
+def add_subs(underlying, tys: list):
+    constructable, idx = get_constructable(tys)
+    if constructable is not None:
+        add_constructable(underlying, tys)
+        tys.pop(idx)
+    if hasattr(underlying, DiUtilConstants.subs.name):
+        for t in tys:
+            underlying.subs.append(t)
+    else:
+        underlying.subs = tys
+
+
+def add_attr(underlying, to_add, name):
+    if hasattr(underlying, name):
+        to_add_values = getattr(underlying, name)
+        if to_add_values is None:
+            setattr(underlying, name, [to_add])
+        else:
+            to_add_values.append(to_add)
+    else:
+        setattr(underlying, name, [to_add])
+
+
+def has_sub(underlying, tys):
+    if not hasattr(underlying, DiUtilConstants.subs.name):
+        return False
+    else:
+        return tys in underlying.subs
+
+
+def get_sub(underlying, matches: typing.Callable) -> typing.Optional:
+    if hasattr(underlying, DiUtilConstants.subs.name):
+        for s in underlying.subs:
+            if matches(s):
+                return s
+
+
+def call_constructable(underlying, self_param, this_param, **kwargs):
+    if hasattr(underlying, DiUtilConstants.subs.name):
+        constructables, idx = get_constructable(underlying.subs)
+        if constructables is not None:
+            for constructable in constructables:
+                if constructable != this_param:
+                    LoggerFacade.debug(f"Calling constructable for {constructable}.")
+                    to_include = set(python_util.reflection.reflection_utils
+                                     .get_all_fn_param_types(constructable.__init__).keys())
+                    to_remove = kwargs.keys() - to_include
+                    copied = copy.copy(kwargs)
+                    for t in to_remove:
+                        del copied[t]
+                    constructable.__init__(self_param, **copied)

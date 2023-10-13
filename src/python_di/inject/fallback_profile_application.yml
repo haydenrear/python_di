@@ -1,0 +1,8 @@
+profiles:
+  active_profiles:
+    test:
+      profile_name: test
+      priority: -100
+    prod:
+      profile_name: prod
+      priority: 100
