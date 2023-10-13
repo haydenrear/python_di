@@ -1,5 +1,4 @@
 import asyncio
-import inspect
 import threading
 import typing
 from typing import Union, Iterable, Type
@@ -130,52 +129,6 @@ class CompositeInjector(injector.Injector):
         other_child.get(injector.SingletonScope).injector = other_child
         return other_child
 
-    def get(self, interface: Type[T], scope = None, profile = None) -> T:
-        """Get an instance of the given interface.
-
-        .. note::
-
-            Although this method is part of :class:`Injector`'s public interface
-            it's meant to be used in limited set of circumstances.
-
-            For example, to create some kind of root object (application object)
-            of your application (note that only one `get` call is needed,
-            inside the `Application` class and any of its dependencies
-            :param profile:
-            :func:`inject` can and should be used):
-
-            .. code-block:: python
-
-                class Application:
-
-                    @inject
-                    def __init__(self, dep1: Dep1, dep2: Dep2):
-                        self.dep1 = dep1
-                        self.dep2 = dep2
-
-                    def run(self):
-                        self.dep1.something()
-
-                injector = Injector(configuration)
-                application = injector.get(Application)
-                application.run()
-
-        :param interface: Interface whose implementation we want.
-        :param scope: Class of the Scope in which to resolve.
-        :returns: An implementation of interface.
-        """
-        binding, binder = self.binder.get_binding(interface)
-        scope = scope or binding.scope
-        if isinstance(scope, ScopeDecorator):
-            scope = scope.scope
-        # Fetch the corresponding Scope instance from the Binder.
-        scope_binding, _ = binder.get_binding(scope)
-        scope_instance = scope_binding.provider.get(self)
-        if isinstance(scope_instance, CompositeScope):
-            result = scope_instance.get(interface, binding.provider, profile).get(self)
-        else:
-            result = scope_instance.get(interface, binding.provider).get(self)
-        return result
 
     def _profile_scope(self, profile: Profile, parent: injector.Injector):
         if profile is not None:
@@ -249,7 +202,7 @@ class CompositeInjector(injector.Injector):
         cls.do_merge_scope(to_merge_from, to_merge_into)
         for binding_key, binding_found in to_merge_from:
             if binding_key != injector.Injector and binding_key != injector.Binder and binding_key != ProfileScope:
-                from python_di.env.prioritized_injectors import do_injector_bind
+                from python_di.inject.prioritized_injectors import do_injector_bind
                 if binding_key not in to_merge_into:
                     do_injector_bind(binding_found.interface, to_merge_into, binding_found.provider,
                                      binding_found.scope)

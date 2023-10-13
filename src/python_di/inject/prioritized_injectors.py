@@ -1,5 +1,4 @@
 import abc
-import asyncio
 import collections
 import threading
 import typing
@@ -9,7 +8,7 @@ import injector
 
 from python_util.concurrent.synchronized_lock_stripe import synchronized_lock_striping, LockStripingLocks
 from python_di.env.base_env_properties import Environment
-from python_di.env.injection_field import InjectionObservationField
+from python_di.inject.injection_field import InjectionObservationField
 from python_di.env.profile import Profile
 from python_di.inject.composite_injector import CompositeInjector, CompositeScope, ProfileScope
 from python_di.inject.inject_utils import is_scope_singleton_scope
@@ -335,7 +334,6 @@ class InjectorsPrioritized:
                         return True
 
     def _assert_valid_binding(self, bind_to, mod, profile, scope):
-        from python_di.inject.inject_utils import is_singleton_scope
         assert isinstance(profile, Profile)
         assert hasattr(bind_to, '__class__'), f"Attempted to bind {bind_to} but does not have ty to bind to."
         binding_ty = bind_to.__class__

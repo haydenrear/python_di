@@ -56,7 +56,7 @@ class InjectionContextInjector:
 
     def initialize_env_profiles(self):
         from python_di.env.init_env import get_env_module
-        from python_di.env.prioritized_injectors import InjectorsPrioritized
+        from python_di.inject.prioritized_injectors import InjectorsPrioritized
         from python_di.env.env_properties import YamlPropertiesFilesBasedEnvironment
         from python_di.env.profile_config_props import ProfileProperties
         if not self.did_initialize_env.is_set():
@@ -86,7 +86,7 @@ class InjectionContextInjector:
 
         for config_init in self.configurations:
             _, config, event, lazy_event, _, _, _ = self.deconstruct_config_init(config_init)
-            from python_di.env.prioritized_injectors import InjectorsPrioritized
+            from python_di.inject.prioritized_injectors import InjectorsPrioritized
             self.injectors_dictionary: InjectorsPrioritized = self.injectors_dictionary
 
             if lazy_event.is_set():
@@ -134,7 +134,7 @@ class InjectionContextInjector:
         self.configurations.append(ConfigInitialization(configuration, underlying, asyncio.Event(),
                                                         asyncio.Event(), profile, priority, bindings))
         from python_di.env.profile_config_props import ProfileProperties
-        from python_di.env.prioritized_injectors import InjectorsPrioritized
+        from python_di.inject.prioritized_injectors import InjectorsPrioritized
         self.injectors_dictionary: InjectorsPrioritized = self.injectors_dictionary
         self.profile_props: ProfileProperties = self.profile_props
         self.configurations = sorted(self.configurations, key=lambda c: self._sort_config_ky(c.priority, c.profile))
@@ -155,7 +155,7 @@ class InjectionContextInjector:
         if found_obj is not None:
             return found_obj
         elif is_multibindable(type_value):
-            from python_di.env.prioritized_injectors import InjectorsPrioritized
+            from python_di.inject.prioritized_injectors import InjectorsPrioritized
             self.injectors_dictionary: InjectorsPrioritized = self.injectors_dictionary
             self.injectors_dictionary.register_multibind(type_value, scope, created_profile)
             return self.get_interface(type_value, profile, scope)
@@ -290,13 +290,9 @@ class InjectionContextInjector:
                           **kwargs) -> Optional[T]:
         exceptions = []
         for injector_found in self.get_injector(ty, profile_name=profile):
-            try:
-                out_val = injector_cb(injector_found, exceptions, **kwargs)
-                if out_val is not None:
-                    return out_val
-            except Exception as e:
-                LoggerFacade.error(f"Error:\n{e}")
-                exceptions.append(e)
+            out_val = injector_cb(injector_found, exceptions, **kwargs)
+            if out_val is not None:
+                return out_val
 
         # lazy can be unset by adding another configuration as the config files are interpreted and classes are loaded.
         if not self.did_initialize_env.is_set():
@@ -367,15 +363,7 @@ class InjectionContextInjector:
             if scope_decorator is not None and binding.scope != scope_decorator:
                 LoggerFacade.error(f"Scope requested was {scope_decorator}, but scope contained in {profile} was "
                                    f"{binding.scope}.")
-            if isinstance(injector_value, CompositeInjector):
-                try:
-                    found = injector_value.get(type_value, binding.scope, profile)
-                    return found
-                except Exception as e:
-                    print(e)
-            else:
-                found = injector_value.get(type_value, binding.scope)
-                return found
+            return injector_value.get(type_value, binding.scope)
 
 
 

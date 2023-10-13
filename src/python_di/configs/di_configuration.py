@@ -9,7 +9,7 @@ from python_di.configs.base_config import DiConfiguration
 from python_di.configs.di_util import get_underlying, retrieve_callable_provider, \
     get_wrapped_fn, BeanFactoryProvider, DiUtilConstants, add_subs
 from python_di.env.base_module_config_props import ConfigurationProperties
-from python_di.env.prioritized_injectors import do_bind
+from python_di.inject.prioritized_injectors import do_bind
 from python_di.inject.inject_context import inject_context
 from python_di.inject.injector_provider import RegisterableModuleT
 from python_util.logger.logger import LoggerFacade

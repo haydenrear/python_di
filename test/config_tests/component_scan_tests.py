@@ -9,7 +9,7 @@ from config_tests.component_scan_fixtures import TestAutowired, TestProfileInjec
     TestInjectionHasValue
 from python_di.configs.di_configuration import get_config_clzz, configuration, enable_configuration_properties, \
     component_scan, bean, lazy
-from python_di.env.prioritized_injectors import SingletonBindingExistedException
+from python_di.inject.prioritized_injectors import SingletonBindingExistedException
 from python_di.inject.composite_injector import ProfileScope, CompositeScope
 from python_di.inject.injector_provider import InjectionContext
 from python_util.logger.log_level import LogLevel
