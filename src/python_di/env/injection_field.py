@@ -42,6 +42,10 @@ class InjectionObservationField:
         self.profile_injector: typing.Optional[CompositeInjector] = None
         self.registered_event: asyncio.Event = asyncio.Event()
 
+    def register_injector(self, to_register: CompositeInjector):
+        self.injectors.append(to_register)
+        self.registered_event.clear()
+
     def register_config_injector(self, composite_inj: CompositeInjector, new_ty: typing.Type):
         self.registered_event.clear()
         if new_ty in self.config_injectors.keys():

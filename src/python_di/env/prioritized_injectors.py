@@ -68,11 +68,13 @@ class InjectorsPrioritized:
         self.composite_injector = CompositeInjector([], profile=default_profile)
         self.profile_scopes[default_profile.profile_name] = self.composite_injector.get(ProfileScope)
         self.composite_scope: CompositeScope = CompositeScope(self.composite_injector)
+        self.composite_injector.composite_created = self.composite_scope
         self.injectors[default_profile] = InjectionObservationField(
             [self.composite_injector],
             profile_scope=self.profile_scopes[default_profile.profile_name],
             composite_scope=self.composite_scope
         )
+        bind_composite_scope(self.composite_injector, self.composite_scope)
         self.config_idx: dict[typing.Type, Profile] = {}
         self.profiles: Optional[ProfileProperties] = None
         self.multibind_registrar: dict[typing.Type, list[typing.Type]] = {}
@@ -130,10 +132,12 @@ class InjectorsPrioritized:
                 profile_scope=self.profile_scopes[profile.profile_name],
                 composite_scope=self.composite_scope
             )
+            bind_composite_scope(new_injector, self.composite_scope)
         else:
             new_injector = create_bind_new_config_injector(bindings, config_ty, config_value, inject_value,
                                                            self.composite_scope, profile,
                                                            self.profile_scopes[profile.profile_name])
+            bind_composite_scope(new_injector, self.composite_scope)
             self.injectors[profile].register_config_injector(new_injector, config_ty)
 
     @synchronized_lock_striping(profile_locks, lock_arg_arg_name='profile')
@@ -141,16 +145,19 @@ class InjectorsPrioritized:
         if profile.profile_name not in self.profile_props:
             self.profile_props[profile.profile_name] = profile
         if profile not in self.injectors.keys():
-            created_injector = CompositeInjector(inject_value, profile=profile)
+            created_injector = CompositeInjector(inject_value, profile=profile, scope=self.composite_scope)
             LoggerFacade.debug(f"Adding new profile {profile} to {[i for i in self.injectors.keys()]}.")
             self.profile_scopes[profile.profile_name] = created_injector.get(ProfileScope, ProfileScope)
             self.injectors[profile] = InjectionObservationField(injectors=[created_injector],
                                                                 profile_scope=self.profile_scopes[profile.profile_name],
                                                                 composite_scope=self.composite_scope)
+            bind_composite_scope(created_injector, self.composite_scope)
         else:
             LoggerFacade.debug(f"Appending new injector {profile}.")
-            created_injector = CompositeInjector(inject_value, profile=self.profile_scopes[profile.profile_name])
-            self.injectors[profile].injectors.append(created_injector)
+            created_injector = CompositeInjector(inject_value, profile=self.profile_scopes[profile.profile_name],
+                                                 scope=self.composite_scope)
+            bind_composite_scope(created_injector, self.composite_scope)
+            self.injectors[profile].register_injector(created_injector)
         LoggerFacade.debug(f"After adding new profile {profile} to {[i for i in self.injectors.keys()]}.")
 
     @injector.synchronized(synchronized_lock)
@@ -173,11 +180,10 @@ class InjectorsPrioritized:
         if scope is None or is_scope_singleton_scope(scope):
             if self._do_check_if_bound(mod[0], bind_to):
                 raise SingletonBindingExistedException(f"Failed to create binding for {type(bind_to)}.")
-
         for m in mod:
             if not binder_contains_item(injector_found, m):
-                injector_found.binder.bind(m, injector.InstanceProvider(bind_to),
-                                           scope=scope)
+                provider = injector.InstanceProvider(bind_to)
+                injector_found.binder.bind(m, provider, scope=scope)
 
     @synchronized_lock_striping(profile_locks, lock_arg_arg_name='profile')
     def register_component(self, concrete: typing.Type[T], bindings: list[typing.Type],
@@ -374,22 +380,29 @@ def create_config_ty(config):
 
 
 def create_bind_new_injector(inject_value, composite_scope, profile):
-    composite_injector = CompositeInjector(inject_value, profile=profile)
+    composite_injector = CompositeInjector(inject_value, profile=profile, scope=composite_scope)
     composite_injector.bind(injector.SingletonScope, composite_scope, scope=injector.singleton)
+    composite_injector.bind(CompositeScope, composite_scope, scope=injector.singleton)
     return composite_injector
 
 
 def create_bind_new_config_injector(bindings, config_ty, config_value, inject_value, composite_scope, profile,
                                     profile_scope):
     composite_injector = CompositeInjector(inject_value,
-                                           profile=profile_scope if profile_scope is not None else profile)
+                                           profile=profile_scope if profile_scope is not None else profile,
+                                           scope=composite_scope)
     composite_injector.bind(config_ty, injector.InstanceProvider(config_value), scope=injector.singleton)
-    composite_injector.bind(injector.SingletonScope, composite_scope, scope=injector.singleton)
+    bind_composite_scope(composite_injector, composite_scope)
     if bindings is not None:
         for b in bindings:
             composite_injector.bind(b, injector.InstanceProvider(config_value), scope=injector.singleton)
 
     return composite_injector
+
+
+def bind_composite_scope(composite_injector, composite_scope):
+    composite_injector.bind(injector.SingletonScope, composite_scope, scope=injector.singleton)
+    composite_injector.bind(CompositeScope, composite_scope, scope=injector.singleton)
 
 
 def create_bindings_inner(bindings, config_value, existed_config):

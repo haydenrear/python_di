@@ -188,7 +188,7 @@ class ImportResolver:
             return module_path
 
         # Check for package (directory with __init__.py)
-        package_path = os.path.join(module_dir, *path_components[1:], '../../src/drools_py/reflection/__init__.py')
+        package_path = os.path.join(module_dir, *path_components[1:], '__init__.py')
         if os.path.exists(package_path):
             return package_path
         else:

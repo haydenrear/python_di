@@ -120,10 +120,12 @@ class AggregateTypeIntrospecter(TypeIntrospector):
         return any([i.matches(base) for i in self.introspecters])
 
     def introspect_type(self, base) -> list[IntrospectedDef]:
+        introspected = []
         for i in self.introspecters:
             if i.matches(base):
                 inner = i.introspect_type_inner(base)
-                return inner[1]
+                introspected.extend(inner[1])
+        return introspected
 
     def introspect_type_inner(self, base) -> (object, list[IntrospectedDef]):
         for i in self.introspecters:
@@ -140,8 +142,10 @@ class AttributeAstIntrospecter(TypeIntrospector):
         return isinstance(base, ast.Attribute)
 
     def introspect_type_inner(self, base) -> (object, list[IntrospectedDef]):
+        assert isinstance(base, ast.Attribute)
+        type_attr = base.attr
         inner, ty = self.agg.introspect_type_inner(base.value)
-        return inner, ty if isinstance(ty, list) else [ty]
+        return f'{inner}.{type_attr}', ty if isinstance(ty, list) else [ty]
 
 
 class ListAstIntrospecter(TypeIntrospector):
@@ -269,6 +273,8 @@ class GenericClassDefParser(ClassDefIntrospectParser):
             return [IntrospectedGeneric(name=name, gen_types=[ty[0]])]
         elif len(ty) == 2:
             return [IntrospectedGeneric(name=name, gen_types=[ty[0], ty[1]])]
+        elif 'Union' in inner:
+            return [IntrospectedGeneric(name=name, gen_types=[t for t in ty])]
         else:
             assert len(ty) == 0, \
                 f"Unsupported generic type for {name}."

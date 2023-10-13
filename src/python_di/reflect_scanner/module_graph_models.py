@@ -4,7 +4,14 @@ import typing
 from enum import Enum, auto
 
 from python_di.reflect_scanner.type_introspector import IntrospectedDef
-from drools_py.serialize.serializable_types import SerializableEnum
+
+
+class SerializableEnum(enum.Enum):
+    @classmethod
+    def value_of(cls, value: str):
+        for i, name in cls.__members__.items():
+            if i.lower() == value.lower():
+                return name
 
 
 class GraphElement(Enum):

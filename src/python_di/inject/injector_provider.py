@@ -368,8 +368,11 @@ class InjectionContextInjector:
                 LoggerFacade.error(f"Scope requested was {scope_decorator}, but scope contained in {profile} was "
                                    f"{binding.scope}.")
             if isinstance(injector_value, CompositeInjector):
-                found = injector_value.get(type_value, binding.scope, profile)
-                return found
+                try:
+                    found = injector_value.get(type_value, binding.scope, profile)
+                    return found
+                except Exception as e:
+                    print(e)
             else:
                 found = injector_value.get(type_value, binding.scope)
                 return found

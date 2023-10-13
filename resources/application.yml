@@ -1,0 +1,8 @@
+env_factories:
+  factories:
+    main_profile:
+      - factory: src.python_di.inject.reflectable_ctx.ReflectableCtx
+        lazy: True
+scanner:
+  src_file: '/Users/hayde/IdeaProjects/drools/python_di/src/python_di/__init__.py'
+  num_up: 2
