@@ -111,24 +111,37 @@ def autowired(profile: Optional[typing.Union[Profile, str]] = None, eager_init: 
 def component(bind_to: list[type] = None, profile: Optional[str] = None):
     inject = component.inject_context()
 
-
     def class_decorator_inner(cls):
-        for k, v in cls.__dict__.items():
-            if hasattr(cls, k):
-                validation_config = getattr(cls, k)
-                if (hasattr(validation_config, DiUtilConstants.wrapped_fn.name)
-                        and validation_config.wrapped_fn.self_factory):
-                    validation_config, wrapped = get_wrapped_fn(validation_config)
-                    config_profile = validation_config.profile
-                    priority = validation_config.priority
-                    scope = validation_config.scope if validation_config.scope is not None else injector.singleton
-                    LoggerFacade.info(f"Found bean self factory for {config_profile} and {cls}.")
-                    inject.register_component_value([cls], validation_config(cls), scope, priority, config_profile)
+        register_self_factories(cls)
+        binding = get_bindings(cls)
+        inject.register_component(cls, binding, injector.singleton, profile)
+        return cls
+
+    def get_bindings(cls):
         binding = bind_to if bind_to is not None else [cls]
         if cls not in binding:
             binding.append(cls)
-        inject.register_component(cls, binding, injector.singleton, profile)
-        return cls
+        return binding
+
+    def register_self_factories(cls):
+        for class_property_name, class_property_method_value in cls.__dict__.items():
+            if hasattr(cls, class_property_name):
+                potential_self_bean_factory = getattr(cls, class_property_name)
+                if (hasattr(potential_self_bean_factory, DiUtilConstants.wrapped_fn.name)
+                        and potential_self_bean_factory.wrapped_fn.self_factory):
+                    self_bean_factory, wrapped = get_wrapped_fn(potential_self_bean_factory)
+                    config_profile = self_bean_factory.profile
+                    if config_profile is None:
+                        config_profile = profile
+                    do_inject, to_construct = retrieve_factory(self_bean_factory, config_profile)
+                    if not do_inject:
+                        LoggerFacade.error(f"Error injecting self bean factory for {cls}.")
+                    else:
+                        priority = self_bean_factory.priority
+                        scope = self_bean_factory.scope if self_bean_factory.scope is not None else injector.singleton
+                        LoggerFacade.info(f"Found bean self factory for {config_profile} and {cls}.")
+                        inject.register_component_value([cls], self_bean_factory(cls, **to_construct), scope,
+                                                        priority, config_profile)
 
     return class_decorator_inner
 

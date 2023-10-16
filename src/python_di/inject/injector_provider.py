@@ -157,8 +157,7 @@ class InjectionContextInjector:
         elif is_multibindable(type_value):
             from python_di.inject.prioritized_injectors import InjectorsPrioritized
             self.injectors_dictionary: InjectorsPrioritized = self.injectors_dictionary
-            self.injectors_dictionary.register_multibind(type_value, scope, created_profile)
-            return self.get_interface(type_value, profile, scope)
+            return self.injectors_dictionary.register_multibind(type_value, scope, created_profile)
 
     def get_property_with_default(self, key, default, profile_name=None):
         if self.environment is not None:

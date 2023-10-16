@@ -5,6 +5,7 @@ import typing
 import python_util.reflection.reflection_utils
 from python_di.configs.base_config import DiConfiguration
 from python_di.configs.constructable import ConstructableMarker
+from python_di.inject.inject_context import inject_context
 from python_di.inject.injector_provider import InjectionContext
 from python_util.logger.logger import LoggerFacade
 from python_util.reflection.reflection_utils import get_all_fn_param_types_no_default
@@ -63,24 +64,26 @@ def create_callable_provider_curry(v, profile, config):
 
 
 def create_callable_provider(v, profile, config):
-    provider_created = retrieve_factory(v, profile)[1]
+    do_inject, to_construct_factories = retrieve_factory(v, profile)
+    provider_created = to_construct_factories
     provider_created['self'] = config
     return provider_created
 
 
+@inject_context()
 def retrieve_factory(v, profile):
+    inject = retrieve_factory.inject_context()
     to_construct = {}
-    do_inject = False
+    do_inject = True
     items = getattr(v, DiUtilConstants.wrapped.name).items()
     for key, val in items:
-        if key == 'self' or key == 'args' or key == 'kwargs':
+        if key == 'self' or key == 'args' or key == 'kwargs' or key == 'cls':
             continue
         try:
             LoggerFacade.info(f"Retrieving bean: {val} for bean factory: {v}.")
-            found = InjectionContext.get_interface(val, profile)
+            found = inject.get_interface(val, profile)
             assert found is not None
             to_construct[key] = found
-            do_inject = True
         except Exception as e:
             LoggerFacade.warn(f"Failed to initialize test configuration {v} from getting {val}: {e}.")
             to_construct[key] = None

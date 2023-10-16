@@ -7,6 +7,8 @@ import injector
 from config_tests.component_scan_fixture import TestBean, TestOne, TestTwo
 from config_tests.component_scan_fixtures import TestAutowired, TestProfileInjection, \
     TestInjectionHasValue
+from config_tests.other_component_scan_fixture import TestOneHundred
+from python_di.configs.autowire import component
 from python_di.configs.di_configuration import get_config_clzz, configuration, enable_configuration_properties, \
     component_scan, bean, lazy
 from python_di.inject.prioritized_injectors import SingletonBindingExistedException
@@ -44,6 +46,21 @@ class TestComponentScan:
         return out_test
 
 
+class TestSelfBeanFactoryBean:
+    def __init__(self, test: TestOne, test_one_hundred: TestOneHundred):
+        self.test_one_hundred = test_one_hundred
+        self.test = test
+
+
+@component()
+class TestSelfBeanFactory:
+
+    @bean(profile='test', self_factory=True, scope=ProfileScope)
+    @lazy
+    def test_self_bean_factory(self, test: TestOne, test_one_hundred: TestOneHundred):
+        return TestSelfBeanFactoryBean(test, test_one_hundred)
+
+
 class ComponentScanTest(unittest.TestCase):
 
     def setUp(self):
@@ -56,6 +73,16 @@ class ComponentScanTest(unittest.TestCase):
         assert self.component_scan_config is not None
         assert self.two is not None
         assert self.three is not None
+
+    def test_self_bean_factory(self):
+        test_self_bean_f = InjectionContext.get_interface(TestSelfBeanFactoryBean)
+        test_one_hundred = InjectionContext.get_interface(TestOneHundred, profile='test')
+        asserter = assert_all()
+        asserter(test_self_bean_f is not None, "Test self bean factory was None")
+        asserter(test_self_bean_f.test is not None, "Internal test was none")
+        asserted = asserter(test_self_bean_f.test_one_hundred == test_one_hundred,
+                            "Test one hundred was not correct profile.")
+        asserted()
 
     def test_inject_from_profile_scope_into_singleton_scope(self):
         from config_tests.other_component_scan_fixture import TestOneHundred
