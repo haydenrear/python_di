@@ -42,6 +42,9 @@ class ProfileScope(injector.Scope):
         yield from self._context.items()
 
 
+profile_scope = injector.ScopeDecorator(ProfileScope)
+
+
 class CompositeScope(injector.SingletonScope):
     """
     Manages creation and context of objects.
@@ -128,7 +131,6 @@ class CompositeInjector(injector.Injector):
         self._merge_bindings_static(other_child, self)
         other_child.get(injector.SingletonScope).injector = other_child
         return other_child
-
 
     def _profile_scope(self, profile: Profile, parent: injector.Injector):
         if profile is not None:

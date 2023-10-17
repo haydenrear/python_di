@@ -5,6 +5,7 @@ import typing
 import python_util.reflection.reflection_utils
 from python_di.configs.base_config import DiConfiguration
 from python_di.configs.constructable import ConstructableMarker
+from python_di.inject.composite_injector import profile_scope
 from python_di.inject.inject_context import inject_context
 from python_di.inject.injector_provider import InjectionContext
 from python_util.logger.logger import LoggerFacade
@@ -47,16 +48,29 @@ def get_underlying(cls):
 
 class BeanFactoryProvider:
 
-    def __init__(self, value: typing.Callable[[DiConfiguration], injector.CallableProvider], profile: str):
+    def __init__(self, value: typing.Callable[[DiConfiguration, str], injector.CallableProvider],
+                 profile: typing.Union[str, list[str], None]):
         self.profile = profile
         self.value = value
 
-    def build(self, config: DiConfiguration) -> injector.CallableProvider:
-        return self.value(config)
+    def build(self, config: DiConfiguration) -> dict[str, injector.CallableProvider]:
+        from python_di.env.env_properties import DEFAULT_PROFILE
+        if isinstance(self.profile, list):
+            out_cb = {p: self.value(config, p) for p in self.profile}
+        elif isinstance(self.profile, str):
+            out_cb = {self.profile: self.value(config, self.profile)}
+        else:
+            out_cb = {DEFAULT_PROFILE: self.value(config, DEFAULT_PROFILE)}
+        if DEFAULT_PROFILE not in out_cb.keys():
+            out_cb[DEFAULT_PROFILE] = self.value(config, DEFAULT_PROFILE)
+
+        return out_cb
 
 
 def retrieve_callable_provider(v, profile) -> BeanFactoryProvider:
-    return BeanFactoryProvider(lambda config: create_callable_provider_curry(v, profile, config), profile)
+    return BeanFactoryProvider(lambda config, profile_created: create_callable_provider_curry(v, profile_created,
+                                                                                              config),
+                               profile)
 
 
 def create_callable_provider_curry(v, profile, config):
@@ -81,7 +95,10 @@ def retrieve_factory(v, profile):
             continue
         try:
             LoggerFacade.info(f"Retrieving bean: {val} for bean factory: {v}.")
-            found = inject.get_interface(val, profile)
+            from python_di.env.env_properties import DEFAULT_PROFILE
+            found = inject.get_interface(val, profile,
+                                         scope=injector.singleton if profile is None or profile == DEFAULT_PROFILE
+                                         else profile_scope)
             assert found is not None
             to_construct[key] = found
         except Exception as e:

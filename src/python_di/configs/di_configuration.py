@@ -35,7 +35,7 @@ def imported(configs: list[typing.Type], profile: Optional[str] = None):
 
 
 
-def bean(profile: Optional[str] = None, priority: Optional[int] = None,
+def bean(profile: typing.Union[str, list[str], None] = None, priority: Optional[int] = None,
          type_id: Optional[str] = None, self_factory: bool = False,
          scope: Optional[typing.Type[injector.Scope]] = None):
     def bean_wrap(fn):
@@ -82,10 +82,11 @@ class BuildableModule:
         out_mods = {}
         for (i, b, s) in self.beans_builder:
             built_mod = b.build(config)
-            if b.profile in out_mods.keys():
-                out_mods[b.profile].append((built_mod, i, s))
-            else:
-                out_mods[b.profile] = [(built_mod, i, s)]
+            for p, m in built_mod.items():
+                if p in out_mods.keys():
+                    out_mods[p].append((m, i, s))
+                else:
+                    out_mods[p] = [(m, i, s)]
 
         built_beans = {
             profile_name: self.configure_curry(bean_providers_for_profile)

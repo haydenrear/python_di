@@ -13,7 +13,7 @@ from python_di.configs.base_config import DiConfiguration
 from python_di.env.base_module_config_props import ConfigurationProperties
 from python_di.env.init_env import EnvironmentProvider, retrieve_env_profile
 from python_di.env.property_source import PropertySource
-from python_di.inject.composite_injector import CompositeInjector
+from python_di.inject.composite_injector import CompositeInjector, ProfileScope
 from python_util.logger.logger import LoggerFacade
 from python_util.reflection.reflection_utils import is_type_instance_of
 
@@ -277,7 +277,8 @@ class InjectionContextInjector:
             if bean_profile is None:
                 bean_profile = profile_in
             profile = self._retrieve_create_profile(bean_profile)
-            self.injectors_dictionary.register_config_injector([mod], config, config_value, bindings, profile=profile)
+            self.injectors_dictionary.register_config_injector([mod], config, config_value,
+                                                               bindings, profile=profile)
 
     def _sort_config_ky(self, priority: Optional[int], profile_name: Optional[str]):
         return priority if priority is not None \
@@ -354,11 +355,16 @@ class InjectionContextInjector:
     @classmethod
     def get_binding(cls, injector_value: injector.Injector, type_value: typing.Type[T],
                     profile, scope_decorator: injector.ScopeDecorator = None) -> Optional[T]:
-        if type_value not in injector_value.binder._bindings.keys():
+        if isinstance(scope_decorator, injector.ScopeDecorator):
+            scope_decorator = scope_decorator.scope
+        type_not_contained = type_value not in injector_value.binder._bindings.keys()
+        if type_not_contained:
             LoggerFacade.info(f"Could not find {type_value} with {injector_value.binder._bindings.__len__()} "
                               f"number of bindings")
         else:
             binding, _ = injector_value.binder.get_binding(type_value)
+            if isinstance(scope_decorator, injector.ScopeDecorator):
+                scope_decorator = scope_decorator.scope
             if scope_decorator is not None and binding.scope != scope_decorator:
                 LoggerFacade.error(f"Scope requested was {scope_decorator}, but scope contained in {profile} was "
                                    f"{binding.scope}.")

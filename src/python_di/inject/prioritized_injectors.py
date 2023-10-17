@@ -45,8 +45,14 @@ def log_binder_info(inj):
 class SingletonBindingExistedException(BaseException):
     pass
 
+
 class ConfigNotExistedException(BaseException):
     pass
+
+
+class ProfileBindingNotExistedException(BaseException):
+    pass
+
 
 class InjectorsPrioritized:
     """
@@ -277,7 +283,6 @@ class InjectorsPrioritized:
             else:
                 self.multibind_registrar[typing.List[b]] = [concrete]
 
-
     def _retrieve_injectors_having(self, ty: typing.Type[T]) -> dict[Profile, CompositeInjector]:
         return dict(filter(lambda k_v: ty in k_v[1], self.injectors.items()))
 
@@ -344,6 +349,7 @@ class InjectorsPrioritized:
                                  f"{mod} in singleton scope, but binding already existed. Overwriting binding with "
                                  f"component value.")
         return binding_ty
+
 
 def binder_contains_item(inject_value, item):
     return item in inject_value.binder._bindings.keys()
