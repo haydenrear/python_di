@@ -1,33 +1,16 @@
 import copy
-import enum
 import typing
+
+import injector
 
 import python_util.reflection.reflection_utils
 from python_di.configs.base_config import DiConfiguration
+from python_di.configs.constants import DiUtilConstants
 from python_di.configs.constructable import ConstructableMarker
 from python_di.inject.composite_injector import profile_scope
 from python_di.inject.inject_context import inject_context
-from python_di.inject.injector_provider import InjectionContext
 from python_util.logger.logger import LoggerFacade
 from python_util.reflection.reflection_utils import get_all_fn_param_types_no_default
-import injector
-
-
-class DiUtilConstants(enum.Enum):
-    profile = enum.auto()
-    inject_context = enum.auto()
-    wrapped_fn = enum.auto()
-    injectable_profile = enum.auto()
-    prefix_name = enum.auto()
-    proxied = enum.auto()
-    wrapped = enum.auto()
-    is_bean = enum.auto()
-    is_lazy = enum.auto()
-    is_injectable = enum.auto()
-    class_configs = enum.auto()
-    post_construct = enum.auto()
-    type_id = enum.auto()
-    subs = enum.auto()
 
 
 def get_wrapped_fn(fn):

@@ -1,4 +1,3 @@
-import copy
 import typing
 from typing import Optional
 
@@ -124,11 +123,6 @@ def component(bind_to: list[type] = None, profile: typing.Union[str, None, list[
                 inject.register_component(cls, bindings=binding, scope=scope, profile=p)
         elif isinstance(profile, str):
             inject.register_component(cls, binding, scope, profile)
-            from python_di.env.env_properties import DEFAULT_PROFILE
-            if profile != DEFAULT_PROFILE:
-                assert scope is not None and scope != injector.singleton
-                assert scope == profile_scope
-                inject.register_component(cls, binding, scope, DEFAULT_PROFILE)
         elif scope is None or scope == injector.singleton:
             inject.register_component(cls, bindings=binding, scope=injector.singleton)
         return cls
@@ -180,7 +174,7 @@ def component(bind_to: list[type] = None, profile: typing.Union[str, None, list[
 
 @inject_context()
 def config_option(bind_to: list[type] = None, profile: Optional[str] = None):
-    inject = component.inject_context()
+    inject = config_option.inject_context()
 
     def class_decorator_inner(cls):
         binding = bind_to if bind_to is not None else [cls]

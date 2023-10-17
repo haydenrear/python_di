@@ -445,7 +445,7 @@ class InjectionContext:
     @injector.synchronized(injector_lock)
     def get_interface(cls, type_value: typing.Type[T], profile: str = None,
                       scope: injector.ScopeDecorator = None) -> Optional[T]:
-        from python_di.configs.di_util import DiUtilConstants
+        from python_di.configs.constants import DiUtilConstants
         if scope is None:
             scope = injector.singleton
         if hasattr(type_value, DiUtilConstants.prefix_name.name):
@@ -530,7 +530,7 @@ def create_add_profile_curry(
 
 
 def _set_class_configs(config, config_value, underlying):
-    from python_di.configs.di_util import DiUtilConstants
+    from python_di.configs.constants import DiUtilConstants
     config.proxied = underlying
     if hasattr(underlying, DiUtilConstants.class_configs.name) and config_value not in underlying.class_configs:
         underlying.class_configs.append(config_value)
