@@ -4,7 +4,7 @@ import injector
 from injector import Binder
 
 from config_tests.test_component_scan_fixture import TestOne
-from python_di.configs.autowire import component
+from python_di.configs.component import component
 
 
 class TestBean:

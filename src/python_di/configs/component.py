@@ -4,7 +4,7 @@ from typing import Optional
 
 import injector
 
-from python_di.configs.di_util import get_underlying, get_wrapped_fn, retrieve_factory, DiUtilConstants
+from python_di.configs.di_util import get_underlying, DiUtilConstants, get_wrapped_fn, retrieve_factory
 from python_di.inject.composite_injector import profile_scope
 from python_di.inject.inject_context_di import inject_context_di
 from python_di.inject.injector_provider import InjectionContext
@@ -32,7 +32,7 @@ class ComponentFactory:
 
 
 @inject_context_di()
-def component_factory_t(component_factory_data: ComponentFactory, ctx: Optional[InjectionContext] = None):
+def register_component_factory(component_factory_data: ComponentFactory, ctx: Optional[InjectionContext] = None):
 
     component_factory_data: ComponentFactory
     profile = component_factory_data.profiles
@@ -59,7 +59,7 @@ def component_factory_t(component_factory_data: ComponentFactory, ctx: Optional[
         self_bean_factory = f.factory
         to_construct = f.ctx
         ctx.register_component_value([cls], self_bean_factory(cls, **to_construct),
-                                        f.scope, f.priority, f.profile)
+                                     f.scope, f.priority, f.profile)
 
 
 def component(bind_to: list[type] = None, profile: typing.Union[str, None, list[str]] = None,
@@ -74,7 +74,7 @@ def component(bind_to: list[type] = None, profile: typing.Union[str, None, list[
             binding=binding, profiles=profile,
             component_self_factory=self_factories
         )
-        component_factory_t(factory)
+        register_component_factory(factory)
         return cls
 
     def get_bindings(cls):

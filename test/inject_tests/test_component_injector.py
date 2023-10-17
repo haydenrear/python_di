@@ -1,6 +1,6 @@
 import unittest
 
-from python_di.configs.component_factory import component
+from python_di.configs.component import component
 
 
 @component()

@@ -1,7 +1,8 @@
 import injector
 
 from config_tests.component_scan_fixture import TestOne, TestTwo
-from python_di.configs.autowire import component, autowired, injectable, post_construct
+from python_di.configs.autowire import autowired, injectable, post_construct
+from python_di.configs.component import component
 
 
 class TestAutowiredBaseOne:

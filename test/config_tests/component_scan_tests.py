@@ -8,7 +8,7 @@ from config_tests.component_scan_fixture import TestBean, TestOne, TestTwo
 from config_tests.component_scan_fixtures import TestAutowired, TestProfileInjection, \
     TestInjectionHasValue
 from config_tests.other_component_scan_fixture import TestOneHundred
-from python_di.configs.autowire import component
+from python_di.configs.component import component
 from python_di.configs.di_configuration import get_config_clzz, configuration, enable_configuration_properties, \
     component_scan, bean, lazy
 from python_di.inject.prioritized_injectors import SingletonBindingExistedException
