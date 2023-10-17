@@ -271,7 +271,7 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
                                f"but fallback did not exist.")
 
     def assert_prefixname(self, ty):
-        from python_di.configs.di_util import DiUtilConstants
+        from python_di.configs.constants import DiUtilConstants
         assert hasattr(ty, DiUtilConstants.prefix_name.name), (f"Configuration property {ty} was supposed to have "
                                                                f"prefix name.")
 

@@ -25,7 +25,7 @@ def is_scope_singleton_scope(scope: typing.Union[injector.Scope, injector.ScopeD
 
 def get_create_attr(fn, name, factory):
     if hasattr(fn, name):
-        return fn.name
+        return getattr(fn, name)
     else:
         setattr(fn, name, factory)
         return getattr(fn, name)
