@@ -49,10 +49,8 @@ class Autowired:
     pass
 
 
-@inject_context()
-def autowired(profile: Optional[typing.Union[Profile, str]] = None, eager_init: bool = False):
+def autowired(profile: Optional[typing.Union[Profile, str]] = None):
 
-    inject = autowired.inject_context()
     LoggerFacade.debug(f"Creating autowire constructor.")
 
     def create_constructor(cls):

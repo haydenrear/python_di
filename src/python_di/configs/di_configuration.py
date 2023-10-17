@@ -1,3 +1,4 @@
+import dataclasses
 import importlib
 import typing
 from typing import Optional
@@ -10,9 +11,10 @@ from python_di.configs.di_util import get_underlying, retrieve_callable_provider
     get_wrapped_fn, BeanFactoryProvider, add_subs
 from python_di.configs.constants import DiUtilConstants
 from python_di.env.base_module_config_props import ConfigurationProperties
+from python_di.inject.inject_context_di import inject_context_di
 from python_di.inject.prioritized_injectors import do_bind
 from python_di.inject.inject_context import inject_context
-from python_di.inject.injector_provider import RegisterableModuleT
+from python_di.inject.injector_provider import RegisterableModuleT, InjectionContext
 from python_util.logger.logger import LoggerFacade
 from python_di.reflect_scanner.file_parser import FileParser, retrieve_source_files
 from python_di.reflect_scanner.graph_scanner import DecoratorOfGraphScanner, SubclassesOfGraphScannerArgs, \
@@ -21,7 +23,6 @@ from python_di.reflect_scanner.module_graph_models import GraphType
 from python_util.reflection.reflection_utils import get_return_type, is_empty_inspect
 
 
-@inject_context()
 def imported(configs: list[typing.Type], profile: Optional[str] = None):
     """
     Works from only having the import.
@@ -29,11 +30,11 @@ def imported(configs: list[typing.Type], profile: Optional[str] = None):
     :param profile:
     :return:
     """
+
     def class_decorator_inner(cls):
         return cls
 
     return class_decorator_inner
-
 
 
 def bean(profile: typing.Union[str, list[str], None] = None, priority: Optional[int] = None,
@@ -56,6 +57,7 @@ def bean(profile: typing.Union[str, list[str], None] = None, priority: Optional[
         wrapper.wrapped_fn = fn
 
         return wrapper
+
     return bean_wrap
 
 
@@ -96,10 +98,12 @@ class BuildableModule:
 
         return built_beans
 
-    def configure_curry(self, bean_ty_cb: list[(typing.Type, CallableProvider, typing.Type)]) -> typing.Callable[[Binder], None]:
+    def configure_curry(self, bean_ty_cb: list[(typing.Type, CallableProvider, typing.Type)]) -> typing.Callable[
+        [Binder], None]:
         return self.configure(bean_ty_cb)
 
-    def configure(self, bean_ty_cb: list[(typing.Type, CallableProvider, typing.Type)]) -> typing.Callable[[Binder], None]:
+    def configure(self, bean_ty_cb: list[(typing.Type, CallableProvider, typing.Type)]) -> typing.Callable[
+        [Binder], None]:
         return lambda binder: self.create_binder(binder, bean_ty_cb)
 
     @staticmethod
@@ -123,10 +127,33 @@ def get_config_clzz(underlying):
     return underlying
 
 
-@inject_context()
-def configuration(priority: Optional[int] = None, profile: Optional[str] = None):
-    inject = configuration.inject_context()
+DiConfigurationT = typing.TypeVar("DiConfigurationT", covariant=True, bound=DiConfiguration)
 
+
+@dataclasses.dataclass(init=True)
+class ConfigurationFactory:
+    di_config: typing.Type[DiConfigurationT]
+    profile: Optional[str]
+    priority: Optional[int]
+    cls: typing.Type
+    underlying: typing.Type
+
+
+@inject_context_di()
+def register_configuration(configuration_factory: ConfigurationFactory,
+                           ctx: typing.Optional[InjectionContext] = None):
+    ctx.register_configuration(configuration_factory.di_config,
+                               configuration_factory.underlying,
+                               configuration_factory.profile,
+                               configuration_factory.priority,
+                               [
+                                   configuration_factory.cls,
+                                   configuration_factory.di_config,
+                                   configuration_factory.underlying
+                               ])
+
+
+def configuration(priority: Optional[int] = None, profile: Optional[str] = None):
     def class_decorator_inner(cls):
         underlying = get_underlying(cls)
         beans = BuildableModule()
@@ -147,8 +174,10 @@ def configuration(priority: Optional[int] = None, profile: Optional[str] = None)
             def initialize(self) -> dict[str, RegisterableModuleT]:
                 return beans.build_beans(self)
 
-        inject.register_configuration(ClassConfiguration, underlying, profile, priority,
-                                      [cls, ClassConfiguration, underlying])
+        register_configuration(ConfigurationFactory(
+            ClassConfiguration, profile, priority,
+            cls, underlying
+        ))
 
         add_subs(underlying, [ClassConfiguration, cls, DiConfiguration])
 
@@ -237,39 +266,46 @@ def component_scan(base_packages: list[str] = None, configs: list[typing.Type] =
     return class_decorator_inner
 
 
-@inject_context()
-def enable_configuration_properties(config_props: list[typing.Type[ConfigurationProperties]]):
-    inject = enable_configuration_properties.inject_context()
+@dataclasses.dataclass(init=True)
+class ConfigurationPropertiesFactory:
+    config_props: typing.List[typing.Type[ConfigurationProperties]]
+    cls: typing.Type
 
+
+@inject_context_di()
+def register_configuration_properties(config_factory: ConfigurationPropertiesFactory,
+                                      ctx: typing.Optional[InjectionContext] = None):
+    for c in config_factory.config_props:
+        underlying = get_underlying(c)
+        config_prop_created_other = ctx.get_interface(c)
+        config_prop_created = ctx.get_interface(underlying)
+        if config_prop_created is None and config_prop_created_other is not None:
+            config_prop_created = config_prop_created_other
+
+        if config_prop_created is None:
+            if hasattr(underlying, DiUtilConstants.fallback.name):
+                ctx.register_config_properties(c, underlying.fallback, bindings=[underlying])
+            else:
+                ctx.register_config_properties(c, bindings=[underlying])
+
+            LoggerFacade.warn(f"Config properties {c} was not contained in injection context. Adding it "
+                              f"without a fallback.")
+
+            config_prop_created = ctx.get_interface(c)
+
+            LoggerFacade.debug(f"Initialized {config_factory.cls}.")
+
+            test_interface = ctx.get_interface(underlying)
+
+            assert config_prop_created == test_interface, f"Binding to {c} failed for {underlying}."
+
+        if config_prop_created is None:
+            LoggerFacade.warn(f"Config properties {underlying} could not be added to context.")
+
+
+def enable_configuration_properties(config_props: typing.List[typing.Type[ConfigurationProperties]]):
     def class_decorator_inner(cls):
-        for c in config_props:
-
-            underlying = get_underlying(c)
-            config_prop_created_other = inject.get_interface(c)
-            config_prop_created = inject.get_interface(underlying)
-            if config_prop_created is None and config_prop_created_other is not None:
-                config_prop_created = config_prop_created_other
-
-            if config_prop_created is None:
-                if hasattr(underlying, 'fallback'):
-                    inject.register_config_properties(c, underlying.fallback, bindings=[underlying])
-                else:
-                    inject.register_config_properties(c, bindings=[underlying])
-
-                LoggerFacade.warn(f"Config properties {c} was not contained in injection context. Adding it "
-                                  f"without a fallback.")
-
-                config_prop_created = inject.get_interface(c)
-
-                LoggerFacade.debug(f"Initialized {cls}.")
-
-                test_interface = inject.get_interface(underlying)
-
-                assert config_prop_created == test_interface, f"Binding to {c} failed for {underlying}."
-
-            if config_prop_created is None:
-                LoggerFacade.warn(f"Config properties {underlying} could not be added to context.")
-
+        register_configuration_properties(ConfigurationPropertiesFactory(config_props, cls))
         return cls
 
     return class_decorator_inner

@@ -16,3 +16,4 @@ class DiUtilConstants(enum.Enum):
     post_construct = enum.auto()
     type_id = enum.auto()
     subs = enum.auto()
+    fallback = enum.auto()

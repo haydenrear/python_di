@@ -103,8 +103,8 @@ def component(bind_to: list[type] = None, profile: typing.Union[str, None, list[
                             self_factory_scope = get_create_self_factory_scope(self_bean_factory)
                             LoggerFacade.info(f"Found bean self factory for {config_profile} and {cls}.")
                             component_self_factories[p] = ComponentSelfFactory(
-                                p, priority, to_construct, self_bean_factory, cls, self_factory_scope,
-                            )
+                                p, priority, to_construct, self_bean_factory,
+                                cls, self_factory_scope)
 
         return component_self_factories
 
