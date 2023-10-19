@@ -63,7 +63,9 @@ class InjectionContextInjector:
             environment = get_env_module(self.dot_env)
             self.environment: YamlPropertiesFilesBasedEnvironment = environment
             profile_props = self.environment.register_config_property_type(
-                ProfileProperties, os.path.join(os.path.dirname(__file__), 'fallback_profile_application.yml'))
+                ProfileProperties,
+                os.path.join(os.path.dirname(__file__), 'fallback_profile_application.yml')
+            )
             self.injectors_dictionary = InjectorsPrioritized(profile_props)
             self.profile_props = profile_props
             self.environment.profiles = profile_props

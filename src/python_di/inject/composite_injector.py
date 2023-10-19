@@ -259,38 +259,6 @@ class CompositeInjector(injector.Injector):
     def is_immutable(self):
         return self.immutable.is_set()
 
-    def call_with_injectors(self, injectors_provided: list[injector.Injector], to_create: typing.Type[T]):
-        init = to_create.__init__
-        bindings = injector.get_bindings(init)
-        needed: dict[str, type] = dict(
-            (k, v) for (k, v) in bindings.items()
-        )
-        if len(needed) == 0:
-            return to_create()
-        out_deps = {}
-        self.do_next_inject(bindings, self, init, needed, out_deps, to_create)
-        for i in injectors_provided:
-            self.do_next_inject(bindings, i, init, needed, out_deps, to_create)
-
-        if not any([v is None for v in out_deps.values()]):
-            created = to_create(**out_deps)
-            self.composite_created._context[to_create] = InstanceProvider(created)
-            return created
-        return None
-
-    def do_next_inject(self, bindings, i, init, needed, out_deps, to_create):
-        dependencies = i.args_to_inject(
-            function=init,
-            bindings=needed,
-            owner_key=to_create,
-        )
-        needed: dict[str, type] = dict({})
-        for k, v in dependencies.items():
-            if v is None:
-                needed[k] = bindings[k]
-            else:
-                out_deps[k] = v
-
     def __contains__(self, item: typing.Type[T]):
         return (item in self.binder._bindings.keys() or item in self.composite_created._context.keys())
         # or item in self.composite_created.injector.binder._bindings.keys())

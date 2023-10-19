@@ -1,12 +1,9 @@
 import asyncio
-import collections
 import typing
 
 import injector
 
-from python_di.env.profile import Profile
 from python_di.inject.composite_injector import CompositeInjector, ProfileScope, CompositeScope
-from python_util.logger.logger import LoggerFacade
 
 T = typing.TypeVar("T")
 
