@@ -7,7 +7,8 @@ import injector
 import networkx as nx
 from abc import ABC, abstractmethod
 
-from python_di.reflect_scanner.module_graph_models import NodeType, FileNode
+import python_util.graph_util.graph_utils
+from python_di.reflect_scanner.module_graph_models import NodeType, FileNode, Import
 
 
 # Define enums for GraphElement and NodeType
@@ -66,3 +67,15 @@ class FileParser:
                 self.visit_node(node, source_file_path, mod_node)
 
         return self.graph
+
+
+class FileGraphSearcher:
+
+    @classmethod
+    def find_by_class_type_name(cls, class_ty: str, module_value: str,
+                                graph: nx.DiGraph) -> typing.Optional[typing.Tuple[FileNode, FileNode]]:
+        file_node = FileNode(NodeType.CLASS, class_ty)
+        if file_node in graph:
+            for other_edge in python_util.graph_util.graph_utils.get_node_cxns(graph, file_node, True):
+                if other_edge.node_type == NodeType.MODULE and other_edge.id_value == module_value:
+                    return file_node, other_edge

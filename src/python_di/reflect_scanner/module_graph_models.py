@@ -76,6 +76,11 @@ class FileNode(Node):
     def __hash__(self):
         return hash((self.node_type, self.id_value))
 
+    def __eq__(self, other):
+        if not hasattr(other, 'node_type') or not hasattr(other, 'id_value'):
+            return False
+        return other.node_type == self.node_type and other.id_value == self.id_value
+
     def __str__(self):
         return f'Node type: {self.node_type}\nId value: {self.id_value}'
 

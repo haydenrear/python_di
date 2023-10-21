@@ -113,21 +113,23 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
 
 
     def load_factories(self, lazy):
-        factories_collected = collect_multimap([
-            (profile, factory) for profile, factories
-            in self.factories.factories.items()
-            for factory in factories
-        ], self.collect_multimap_partition_by)
-        for profile, factories_in_profile in factories_collected.items():
-            for factory in self.factories.factories[profile.profile_name]:
-                if lazy and factory.lazy:
-                    loaded = self._do_initialize(factory)
-                    if loaded is not None:
-                        yield profile, loaded
-                elif not lazy and not factory.lazy:
-                    loaded = self._do_initialize(factory)
-                    if loaded is not None:
-                        yield profile, loaded
+        if self.factories is not None and self.factories.factories is not None:
+            factories_collected = collect_multimap([
+                (profile, factory) for profile, factories
+                in self.factories.factories.items()
+                for factory in factories
+
+            ], self.collect_multimap_partition_by)
+            for profile, factories_in_profile in factories_collected.items():
+                for factory in self.factories.factories[profile.profile_name]:
+                    if lazy and factory.lazy:
+                        loaded = self._do_initialize(factory)
+                        if loaded is not None:
+                            yield profile, loaded
+                    elif not lazy and not factory.lazy:
+                        loaded = self._do_initialize(factory)
+                        if loaded is not None:
+                            yield profile, loaded
 
     def _do_initialize(self, factory: Factory):
         if not self._factories_locks[factory.factory].is_set():
