@@ -10,7 +10,9 @@ from python_util.reflection.reflection_utils import get_fn_param_types
 
 def retrieve_ctx_arg(param_type: dict[str, (typing.Type, typing.Type)], fn):
     for param_name, param_type in param_type.items():
-        if param_type[0] == typing.Optional[InjectionContext]:
+        if (param_type[0] == typing.Optional[InjectionContext]
+                or param_type[0] == InjectionContext
+                or param_type[0] == typing.Type[InjectionContext]):
             return param_name
     raise ValueError(f"Inject context DI was used on a function: {fn} that did not have a parameter of the type of the "
                      f"context.")
@@ -19,7 +21,7 @@ def retrieve_ctx_arg(param_type: dict[str, (typing.Type, typing.Type)], fn):
 @inject_context()
 def inject_context_di():
     """
-    Decorator to provide the injection context
+    Decorator to provide the injection context.
     :return:
     """
     ctx = inject_context_di.inject_context()

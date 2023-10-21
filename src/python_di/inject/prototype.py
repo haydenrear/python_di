@@ -9,7 +9,8 @@ import python_di
 from python_di.configs.constants import DiUtilConstants
 from python_di.configs.di_util import get_underlying, get_wrapped_fn
 from python_di.env.base_env_properties import DEFAULT_PROFILE
-from python_di.inject.composite_injector import PrototypeScopeDecorator, profile_scope
+from python_di.inject.composite_injector import PrototypeScopeDecorator, profile_scope, \
+    prototype_scope_decorator_factory, prototype_scope as proto_scope
 from python_di.inject.inject_context_di import inject_context_di
 from python_di.inject.injector_provider import InjectionContext
 from python_util.logger.logger import LoggerFacade
@@ -34,10 +35,12 @@ def prototype_factory(profile: typing.Optional[str] = None,
     """
     Create a prototype factory out of the function. The bean_dep_scopes matches the arg names to the scopes for these
     args, and the same for the dep_bean_profiles. They can be None.
-    :param profile:
-    :param prototype_decorator:
-    :param dep_bean_scopes:
-    :param dep_bean_profiles:
+    :param profile: The profile to use as backup if no profile is provided for a dep.
+    :param prototype_decorator: The particular prototype scope decorator (prototype scope decorator provided for each
+    profile and then for singleton "profile". This can be left blank if profile is provided.
+    :param dep_bean_scopes: The scope for each of the kwarg deps. Needed because python doesn't provide a way to
+    add annotations to parameters.
+    :param dep_bean_profiles: The profile for which to get the dep associated with key in dict.
     :return:
     """
 
@@ -69,9 +72,24 @@ def prototype_factory(profile: typing.Optional[str] = None,
     return factory_wrapper
 
 
+def retrieve_bean_scope_from_prototype(
+        bean,
+        profile: typing.Optional[str] = None
+) -> typing.Optional[injector.ScopeDecorator]:
+    bean_wrapped = retrieve_wrapped_factory_fn(bean)
+    if bean_wrapped is not None:
+        bean, _ = bean_wrapped
+        if bean.prototype_decorator is not None:
+            return bean.prototype_decorator
+        if bean.profile is not None:
+            return prototype_scope_decorator_factory(bean.profile)()
+        else:
+            return prototype_scope_decorator_factory(profile)()
+
+
 class PrototypeFactory(abc.ABC):
     @abc.abstractmethod
-    def create(self, *args, **kwargs):
+    def create(self, profile: typing.Optional[str] = None, **kwargs):
         pass
 
 
@@ -102,7 +120,7 @@ def prototype_scope(cls):
     class PrototypeFactoryProxy(PrototypeFactory):
 
         @classmethod
-        def create(cls, **kwargs):
+        def create(cls, profile: typing.Optional[str] = None, **kwargs):
             wrapped_values = retrieve_wrapped_factory_fn(underlying)
             assert wrapped_values is not None
             wrapped_fn, wrapped_values = wrapped_values
@@ -113,10 +131,12 @@ def prototype_scope(cls):
             for to_get_key, to_get_value in wrapped_values.items():
                 bean_descr = cls.get_bean_descr(bean_scopes, to_get_key)
 
+                bean_profile = cls.get_bean_profile(bean_descr, prototype_decorator, profile)
                 construct_values[to_get_key] = cls.get_bean_dependency(
                     to_get_value,
-                    bean_scope=cls.retrieve_bean_scope_item(bean_descr, prototype_decorator),
-                    profile=cls.get_bean_profile(bean_descr, prototype_decorator),
+                    bean_scope=cls.retrieve_bean_scope_item(bean_descr, prototype_decorator, bean_profile,
+                                                            to_get_value),
+                    profile=bean_profile,
                 )
 
             if prototype_self.__init__ == wrapped_fn:
@@ -134,9 +154,16 @@ def prototype_scope(cls):
             return bean_scope
 
         @classmethod
-        def retrieve_bean_scope_item(cls, bean_scope, prototype_decorator):
+        def retrieve_bean_scope_item(cls, bean_scope, prototype_decorator, create_profile, to_get_value):
+            scope_decorator = retrieve_bean_scope_from_prototype(to_get_value, create_profile)
+            if scope_decorator is not None:
+                return scope_decorator
             if bean_scope is not None and bean_scope.scope is not None:
-                bean_scope_item = bean_scope
+                bean_scope_item = bean_scope.scope
+            elif create_profile is not None:
+                bean_scope_item = injector.singleton \
+                    if create_profile == DEFAULT_PROFILE \
+                    else profile_scope
             elif prototype_decorator is not None:
                 bean_scope_item = injector.singleton \
                     if prototype_decorator.profile == DEFAULT_PROFILE \
@@ -147,10 +174,12 @@ def prototype_scope(cls):
             return bean_scope_item
 
         @classmethod
-        def get_bean_profile(cls, bean_scope, prototype_decorator):
+        def get_bean_profile(cls, bean_scope, prototype_decorator, create_profile):
             profile = None
             if bean_scope is not None and bean_scope.profile is not None:
                 profile = bean_scope.profile
+            elif create_profile is not None:
+                profile = create_profile
             elif prototype_decorator is not None:
                 assert isinstance(prototype_decorator, PrototypeScopeDecorator)
                 profile = prototype_decorator.profile

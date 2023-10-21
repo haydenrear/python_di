@@ -363,9 +363,10 @@ class InjectionContextInjector:
             if not hasattr(type_value, 'prototype_bean_factory_ty'):
                 LoggerFacade.error(f"Attempted to retrieve {type_value} with prototype scope but the reference to the"
                                    f"bean's factory did not exist.")
-            if type_value.prototype_bean_factory_ty in injector_value.binder._bindings.keys():
-                type_value = injector_value.get(type_value.prototype_bean_factory_ty, scope=injector.singleton)
-                return type_value.create(**kwargs)
+            else:
+                if type_value.prototype_bean_factory_ty in injector_value.binder._bindings.keys():
+                    type_value = injector_value.get(type_value.prototype_bean_factory_ty, scope=injector.singleton)
+                    return type_value.create(cls.retrieve_profile_name(profile), **kwargs)
         else:
             if isinstance(scope_decorator, injector.ScopeDecorator):
                 scope_decorator = scope_decorator.scope
@@ -381,7 +382,14 @@ class InjectionContextInjector:
                                        f"{binding.scope}.")
                 return injector_value.get(type_value, binding.scope)
 
-
+    @classmethod
+    def retrieve_profile_name(cls, profile):
+        profile_name = None
+        if profile is not None and hasattr(profile, 'profile_name'):
+            profile_name = profile.profile_name
+        elif profile is not None and isinstance(profile, str):
+            profile_name = profile
+        return profile_name.lower() if profile_name is not None else None
 
 
 class InjectorInjectionModule(injector.Module):

@@ -15,6 +15,8 @@ lock = threading.RLock()
 
 ScopeTypeT = typing.TypeVar("ScopeTypeT")
 
+prototype_scope_lock = threading.RLock()
+
 
 class ProfileScope(injector.Scope):
     """
@@ -77,6 +79,27 @@ class PrototypeScopeDecorator(injector.ScopeDecorator):
 
 
 prototype_scope = PrototypeScopeDecorator()
+
+
+def prototype_scope_decorator_factory(
+        profile: typing.Optional[str] = None
+) -> typing.Callable[[], PrototypeScopeDecorator]:
+    prototype_scope_decorators = {}
+    if profile is not None:
+        profile = profile.lower()
+    @synchronized(prototype_scope_lock)
+    def retrieve_prototype_scope_fn():
+        nonlocal prototype_scope_decorators
+        if profile is None:
+            return prototype_scope
+        if profile in prototype_scope_decorators.keys():
+            return prototype_scope_decorators[profile]
+        else:
+            new_prototype_decorator = PrototypeScopeDecorator(profile)
+            prototype_scope_decorators[profile] = new_prototype_decorator
+            return new_prototype_decorator
+
+    return retrieve_prototype_scope_fn
 
 
 class CompositeScope(injector.SingletonScope):
