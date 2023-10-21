@@ -1,3 +1,4 @@
+import abc
 import copy
 import typing
 
@@ -7,15 +8,21 @@ import python_util.reflection.reflection_utils
 from python_di.configs.base_config import DiConfiguration
 from python_di.configs.constants import DiUtilConstants
 from python_di.configs.constructable import ConstructableMarker
-from python_di.inject.composite_injector import profile_scope
 from python_di.inject.inject_context import inject_context
 from python_util.logger.logger import LoggerFacade
 from python_util.reflection.reflection_utils import get_all_fn_param_types_no_default
 
 
-def get_wrapped_fn(fn):
+def get_wrapped_fn(fn) -> typing.Tuple[object, dict]:
+    """
+    :param fn: the function for which to get the wrapped fn.
+    :return: The wrapped fn (proxied value) and a dictionary that contains a mapping from the arg key to the arg type
+    for that function.
+    """
     if hasattr(fn, DiUtilConstants.wrapped_fn.name):
         fn = getattr(fn, DiUtilConstants.wrapped_fn.name)
+    else:
+        fn.wrapped_fn = fn
     wrapped = {i: v for i, v in get_all_fn_param_types_no_default(fn).items()
                if i != 'self' and i != 'args' and i != 'kwargs'}
     return fn, wrapped
@@ -79,6 +86,7 @@ def retrieve_factory(v, profile):
         try:
             LoggerFacade.info(f"Retrieving bean: {val} for bean factory: {v}.")
             from python_di.env.env_properties import DEFAULT_PROFILE
+            from python_di.inject.composite_injector import profile_scope
             found = inject.get_interface(val, profile,
                                          scope=injector.singleton if profile is None or profile == DEFAULT_PROFILE
                                          else profile_scope)
@@ -146,7 +154,8 @@ def get_sub(underlying, matches: typing.Callable) -> typing.Optional:
                 return s
 
 
-def call_constructable(underlying, self_param, this_param, **kwargs):
+def call_constructable(cls, underlying, self_param, this_param, **kwargs):
+    constructed = set([])
     if hasattr(underlying, DiUtilConstants.subs.name):
         constructables, idx = get_constructable(underlying.subs)
         if constructables is not None:
@@ -160,3 +169,5 @@ def call_constructable(underlying, self_param, this_param, **kwargs):
                     for t in to_remove:
                         del copied[t]
                     constructable.__init__(self_param, **copied)
+                    constructed.add(constructable)
+

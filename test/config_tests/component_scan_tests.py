@@ -6,13 +6,14 @@ import injector
 
 from config_tests.component_scan_fixture import TestBean, TestOne, TestTwo
 from config_tests.component_scan_fixtures import TestAutowired, TestProfileInjection, \
-    TestInjectionHasValue
+    TestInjectionHasValue, TestPrototypeScopeComponentOne, TestPrototypeScopeComponentTwo, \
+    TestPrototypeScopeComponentThree, TestPrototypeScopeComponentFour, TestPrototypeScopeComponentFive
 from config_tests.other_component_scan_fixture import TestOneHundred
 from python_di.configs.component import component
 from python_di.configs.di_configuration import get_config_clzz, configuration, enable_configuration_properties, \
     component_scan, bean, lazy
 from python_di.inject.prioritized_injectors import SingletonBindingExistedException
-from python_di.inject.composite_injector import ProfileScope, CompositeScope
+from python_di.inject.composite_injector import ProfileScope, CompositeScope, PrototypeScopeDecorator, prototype_scope
 from python_di.inject.injector_provider import InjectionContext
 from python_util.logger.log_level import LogLevel
 from python_di.reflect_scanner.file_parser import FileParser
@@ -202,6 +203,30 @@ class ComponentScanTest(unittest.TestCase):
         asserted = assertions('TestComponentScan' in [i.id_value for i in next_out.nodes],
                               'TestComponentScan was not provided by FileParser.')
         asserted()
+
+    def test_component_scope(self):
+        assertions = assert_all()
+        one = InjectionContext.get_interface(TestPrototypeScopeComponentOne, scope=prototype_scope)
+        two = InjectionContext.get_interface(TestTwo)
+        assertions(one is not None, "one was None")
+        assertions(one.test is not None, "TestTwo not injected into TestPrototypeScopeComponentOne")
+        assertions(one.test == two, "test injected incorrect TestTwo into TestPrototypeScopeComponentOne")
+
+        two = InjectionContext.get_interface(TestPrototypeScopeComponentTwo, scope=prototype_scope)
+        assertions(two is not None, "two was None")
+
+        three = InjectionContext.get_interface(TestPrototypeScopeComponentThree, scope=prototype_scope, value='goodbye')
+        assertions(three is not None, "three was None")
+        assertions(three.value == 'goodbye', "correct kwarg not injected into TestPrototypeScopeComponentThree")
+
+        four = InjectionContext.get_interface(TestPrototypeScopeComponentFour, scope=prototype_scope)
+        assertions(four is not None, "four was None")
+        assertions(four.test_one_hundred.test_value == 'special_test_val', "five was None")
+
+        five = InjectionContext.get_interface(TestPrototypeScopeComponentFive, scope=prototype_scope)
+        assertions(five is not None, "five was None")
+        assert_out = assertions(five.test_one_hundred.test_value == 'special_val', "five was None")
+        assert_out()
 
     def test_component_scan(self):
         out: TestBean = InjectionContext.get_interface(TestBean)

@@ -45,6 +45,40 @@ class ProfileScope(injector.Scope):
 profile_scope = injector.ScopeDecorator(ProfileScope)
 
 
+class PrototypeScope(injector.Scope):
+
+    def __init__(self, parent: injector.Scope, injector_value: injector.Injector):
+        super().__init__(injector_value)
+        self.parent = parent
+
+    def get(self, key: Type[T], provider: Provider[T]) -> Provider[T]:
+        raise NotImplementedError("Prototype scope beans are created using the factory.")
+
+
+class PrototypeScopeDecorator(injector.ScopeDecorator):
+    def __init__(self, profile: typing.Optional[str] = None):
+        super().__init__(PrototypeScope)
+        self._profile = profile
+
+    @property
+    def profile(self) -> str:
+        if self._profile is None:
+            from python_di.env.base_env_properties import DEFAULT_PROFILE
+            self._profile = DEFAULT_PROFILE
+        return self._profile
+
+    def __eq__(self, other):
+        if type(other) != PrototypeScopeDecorator or PrototypeScopeDecorator not in type(other).__bases__:
+            return False
+        return self.profile == other.profile
+
+    def __hash__(self):
+        return hash((self.profile, PrototypeScopeDecorator.__name__))
+
+
+prototype_scope = PrototypeScopeDecorator()
+
+
 class CompositeScope(injector.SingletonScope):
     """
     Manages creation and context of objects.

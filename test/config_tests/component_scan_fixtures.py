@@ -1,8 +1,10 @@
 import injector
 
 from config_tests.component_scan_fixture import TestOne, TestTwo
+from config_tests.other_component_scan_fixture import TestOneHundred
 from python_di.configs.autowire import autowired, injectable, post_construct
 from python_di.configs.component import component
+from python_di.inject.prototype import prototype_scope, prototype_factory
 
 
 class TestAutowiredBaseOne:
@@ -37,4 +39,52 @@ class TestProfileInjection:
 class TestInjectionHasValue:
     @injector.inject
     def __init__(self, test: TestTwo):
+        self.test = test
+
+
+@prototype_scope
+class TestPrototypeScopeComponentOne:
+
+    @prototype_factory()
+    def __init__(self, test: TestTwo):
+        self.test = test
+
+
+@prototype_scope
+class TestPrototypeScopeComponentTwo:
+    @prototype_factory()
+    def __init__(self, test: TestTwo, other_component: TestPrototypeScopeComponentOne):
+        self.other_component = other_component
+        self.test = test
+
+
+@prototype_scope
+class TestPrototypeScopeComponentThree:
+    @prototype_factory()
+    def __init__(self, test: TestTwo, other_component: TestPrototypeScopeComponentOne,
+                 value: str = 'hello'):
+        self.value = value
+        self.other_component = other_component
+        self.test = test
+
+
+@prototype_scope
+class TestPrototypeScopeComponentFour:
+    @prototype_factory(dep_bean_profiles={'test_one_hundred': 'test'})
+    def __init__(self, test: TestTwo, other_component: TestPrototypeScopeComponentOne,
+                 test_one_hundred: TestOneHundred, value: str = 'hello'):
+        self.test_one_hundred = test_one_hundred
+        self.value = value
+        self.other_component = other_component
+        self.test = test
+
+
+@prototype_scope
+class TestPrototypeScopeComponentFive:
+    @prototype_factory(dep_bean_profiles={'test_one_hundred': 'prod'})
+    def __init__(self, test: TestTwo, other_component: TestPrototypeScopeComponentOne,
+                 test_one_hundred: TestOneHundred, value: str = 'hello'):
+        self.test_one_hundred = test_one_hundred
+        self.value = value
+        self.other_component = other_component
         self.test = test

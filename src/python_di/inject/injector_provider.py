@@ -13,7 +13,7 @@ from python_di.configs.base_config import DiConfiguration
 from python_di.env.base_module_config_props import ConfigurationProperties
 from python_di.env.init_env import EnvironmentProvider, retrieve_env_profile
 from python_di.env.property_source import PropertySource
-from python_di.inject.composite_injector import CompositeInjector, ProfileScope
+from python_di.inject.composite_injector import CompositeInjector, ProfileScope, PrototypeScopeDecorator
 from python_util.logger.logger import LoggerFacade
 from python_util.reflection.reflection_utils import is_type_instance_of
 
@@ -149,10 +149,10 @@ class InjectionContextInjector:
                                                          prefix_name)
 
     def get_interface(self, type_value: typing.Type[T], profile: Optional[str] = None,
-                      scope: injector.ScopeDecorator = None) -> Optional[T]:
+                      scope: injector.ScopeDecorator = None, **kwargs) -> Optional[T]:
         created_profile = self._retrieve_create_profile(profile) if profile is not None else None
         self.initialize_injector_factories(self._is_lazy_set(), type_value)
-        found_obj = self._perform_injector(lambda i, exc: self.get_binding(i, type_value, created_profile, scope),
+        found_obj = self._perform_injector(lambda i, exc: self.get_binding(i, type_value, created_profile, scope, **kwargs),
                                            profile, type_value, scope)
         if found_obj is not None:
             return found_obj
@@ -356,21 +356,31 @@ class InjectionContextInjector:
 
     @classmethod
     def get_binding(cls, injector_value: injector.Injector, type_value: typing.Type[T],
-                    profile, scope_decorator: injector.ScopeDecorator = None) -> Optional[T]:
-        if isinstance(scope_decorator, injector.ScopeDecorator):
-            scope_decorator = scope_decorator.scope
+                    profile, scope_decorator: injector.ScopeDecorator = None,
+                    **kwargs) -> Optional[T]:
         type_not_contained = type_value not in injector_value.binder._bindings.keys()
-        if type_not_contained:
-            LoggerFacade.info(f"Could not find {type_value} with {injector_value.binder._bindings.__len__()} "
-                              f"number of bindings")
+        if isinstance(scope_decorator, PrototypeScopeDecorator):
+            if not hasattr(type_value, 'prototype_bean_factory_ty'):
+                LoggerFacade.error(f"Attempted to retrieve {type_value} with prototype scope but the reference to the"
+                                   f"bean's factory did not exist.")
+            if type_value.prototype_bean_factory_ty in injector_value.binder._bindings.keys():
+                type_value = injector_value.get(type_value.prototype_bean_factory_ty, scope=injector.singleton)
+                return type_value.create(**kwargs)
         else:
-            binding, _ = injector_value.binder.get_binding(type_value)
             if isinstance(scope_decorator, injector.ScopeDecorator):
                 scope_decorator = scope_decorator.scope
-            if scope_decorator is not None and binding.scope != scope_decorator:
-                LoggerFacade.error(f"Scope requested was {scope_decorator}, but scope contained in {profile} was "
-                                   f"{binding.scope}.")
-            return injector_value.get(type_value, binding.scope)
+            if type_not_contained:
+                LoggerFacade.info(f"Could not find {type_value} with {injector_value.binder._bindings.__len__()} "
+                                  f"number of bindings")
+            else:
+                binding, _ = injector_value.binder.get_binding(type_value)
+                if isinstance(scope_decorator, injector.ScopeDecorator):
+                    scope_decorator = scope_decorator.scope
+                if scope_decorator is not None and binding.scope != scope_decorator:
+                    LoggerFacade.error(f"Scope requested was {scope_decorator}, but scope contained in {profile} was "
+                                       f"{binding.scope}.")
+                return injector_value.get(type_value, binding.scope)
+
 
 
 
@@ -446,7 +456,7 @@ class InjectionContext:
     @classmethod
     @injector.synchronized(injector_lock)
     def get_interface(cls, type_value: typing.Type[T], profile: str = None,
-                      scope: injector.ScopeDecorator = None) -> Optional[T]:
+                      scope: injector.ScopeDecorator = None, **kwargs) -> Optional[T]:
         from python_di.configs.constants import DiUtilConstants
         if scope is None:
             scope = injector.singleton
@@ -466,20 +476,20 @@ class InjectionContext:
                     try:
                         fallback_value = type_value.fallback
                         cls.register_config_properties(type_value, fallback_value)
-                        out = cls.get_interface(type_value, fallback_value)
+                        out = cls.get_interface(type_value, fallback_value, **kwargs)
                         return out
                     except Exception as e:
                         LoggerFacade.error(f"Failed to load from fallback with error {e}.")
 
 
         LoggerFacade.info(f"Retrieving {type_value}")
-        out_value = cls.injection_context.get_interface(type_value, profile, scope)
+        out_value = cls.injection_context.get_interface(type_value, profile, scope, **kwargs)
 
         if out_value is not None:
             LoggerFacade.info(f"Found {type_value}.")
             return out_value
         elif hasattr(type_value, DiUtilConstants.proxied.name):
-            return cls.injection_context.get_interface(type_value.proxied, profile, scope)
+            return cls.injection_context.get_interface(type_value.proxied, profile, scope, **kwargs)
 
         return out_value
 

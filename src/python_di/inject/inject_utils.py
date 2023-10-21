@@ -2,7 +2,6 @@ import typing
 
 import injector
 
-from python_di.inject.composite_injector import CompositeScope
 from python_di.inject.injector_provider import InjectionContext
 
 
@@ -10,6 +9,8 @@ def is_singleton_scope(binding: injector.Binding):
     scope = binding.scope
     if isinstance(scope, injector.ScopeDecorator):
         scope = scope.scope
+
+    from python_di.inject.composite_injector import CompositeScope
     is_singleton = (isinstance(scope, injector.SingletonScope) or scope == injector.SingletonScope
                     or scope == CompositeScope)
     return is_singleton
@@ -18,6 +19,7 @@ def is_singleton_scope(binding: injector.Binding):
 def is_scope_singleton_scope(scope: typing.Union[injector.Scope, injector.ScopeDecorator, typing.Type]):
     if isinstance(scope, injector.ScopeDecorator):
         scope = scope.scope
+    from python_di.inject.composite_injector import CompositeScope
     is_singleton = (isinstance(scope, injector.SingletonScope) or scope == injector.SingletonScope
                     or scope == CompositeScope)
     return is_singleton

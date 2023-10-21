@@ -1,3 +1,4 @@
+import abc
 import typing
 from typing import Optional
 
@@ -10,6 +11,7 @@ from python_di.configs.di_util import add_subs, \
 from python_di.configs.di_util import get_underlying, get_wrapped_fn, retrieve_factory, DiUtilConstants
 from python_di.env.profile import Profile
 from python_di.inject.inject_context import inject_context
+from python_util.delegate.delegates import PythonDelegate
 from python_util.logger.logger import LoggerFacade
 
 
@@ -62,11 +64,10 @@ def autowired(profile: Optional[typing.Union[Profile, str]] = None):
                              f"other.")
 
         class AutowireProxy(cls):
-
             def __init__(self, *args, **kwargs):
                 LoggerFacade.debug(f"Initializing autowire proxy for {underlying}.")
-                call_constructable(underlying, self, AutowireProxy, **kwargs)
                 super().__init__(*args, **kwargs)
+                call_constructable(cls, underlying, self, AutowireProxy, **kwargs)
                 call_post_construct = []
                 for k, v in underlying.__dict__.items():
                     if hasattr(v, DiUtilConstants.wrapped_fn.name):
@@ -96,13 +97,42 @@ def autowired(profile: Optional[typing.Union[Profile, str]] = None):
                 return do_inject, to_construct
 
             def __setattr__(self, key, value):
-                self.__dict__[key] = value
+                try:
+                    super().__setattr__(key, value)
+                except:
+                    self.__dict__[key] = value
 
             def __getattr__(self, item):
-                if item in self.__dict__.keys():
-                    return self.__dict__[item]
+                found = self._try_get_attr_super(item)
+                if found is not None:
+                    return found
                 else:
-                    return None
+                    found = self._search_get_attr_super(item)
+                    if found is not None:
+                        return found
+                    else:
+                        raise AttributeError(f"Did not contain {item}!")
+
+            def _try_get_attr_super(self, item):
+                try:
+                    return super().__getattr__(item)
+                except:
+                    pass
+
+            def _search_get_attr_super(self, item):
+                if hasattr(self.proxied, item):
+                    return getattr(self.proxied, item)
+                else:
+                    super_class = super()
+                    if hasattr(super_class, item):
+                        return super_class.__getattr__(item)
+                    elif hasattr(cls, item):
+                        return getattr(cls, item)
+                    else:
+                        for b in type(self).__mro__:
+                            if hasattr(b, item):
+                                return getattr(b, item)
+
 
         AutowireProxy.proxied = underlying
         add_subs(underlying, [{ConstructableMarker: AutowireProxy}])
@@ -124,3 +154,4 @@ def config_option(bind_to: list[type] = None, profile: Optional[str] = None):
         return cls
 
     return class_decorator_inner
+

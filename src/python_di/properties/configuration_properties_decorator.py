@@ -33,7 +33,7 @@ def configuration_properties(prefix_name: Optional[str] = None,
             cls.prefix_name = prefix_name
 
             def __init__(self, **kwargs):
-                call_constructable(underlying, self, ConfigurationPropertiesWrapper, **kwargs)
+                call_constructable(cls, underlying, self, ConfigurationPropertiesWrapper, **kwargs)
                 if kwargs is not None and isinstance(self, BaseModel):
                     try:
                         BaseModel.__init__(self, **kwargs)
