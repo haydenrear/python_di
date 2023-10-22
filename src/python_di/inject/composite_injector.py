@@ -215,6 +215,8 @@ class CompositeInjector(injector.Injector):
                 self.composite_created = parent.composite_created
         else:
             self.composite_created = scope
+            self.binder.bind(injector.SingletonScope, self.composite_created, scope=injector.singleton)
+            self.binder.bind(CompositeScope, self.composite_created, scope=injector.singleton)
         return self.composite_created
 
     def fill_scope_with_bindings(self, binder):

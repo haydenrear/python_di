@@ -3,6 +3,7 @@ import typing
 
 import injector
 
+from python_di.env.base_env_properties import DEFAULT_PROFILE
 from python_di.inject.composite_injector import CompositeInjector, ProfileScope, CompositeScope
 
 T = typing.TypeVar("T")
@@ -29,6 +30,7 @@ class InjectionObservationField:
         :param profile_scope:
         :param composite_scope:
         """
+
         self.composite_scope = composite_scope
         self.profile_scope = profile_scope
         self.config_injectors = config_injectors if config_injectors is not None else {}
@@ -63,9 +65,7 @@ class InjectionObservationField:
                     self.injectors = [self._collapse_injectors(i, self.injectors[1:], self.profile_scope,
                                                                self.composite_scope)]
                     self.bind_scopes(self.injectors[0])
-                    return self.injectors[0]
                 self.bind_scopes(self.injectors[0])
-                return self.injectors[0]
             elif len(self.config_injectors) != 0:
                 self.registered_event.set()
                 for config_ty in self.config_injector_ordering:
@@ -75,12 +75,8 @@ class InjectionObservationField:
                     self._collapse_injectors(self.collapsed, self.injectors, self.profile_scope, self.composite_scope)
                     self.injectors.clear()
                 self.bind_scopes(self.collapsed)
-                return self.collapsed
 
-        if self.collapsed is not None:
-            return self.collapsed
-        elif len(self.injectors) != 0:
-            return self.injectors[0]
+        return self._retrieve_injector_inner()
 
     def bind_scopes(self, to_bind):
         self.bind_scopes_static(to_bind, self.profile_scope, self.composite_scope)
@@ -151,6 +147,9 @@ class InjectionObservationField:
             return self._retrieve_injector_inner()
 
     def _retrieve_injector_inner(self):
+        if self.profile_scope.profile.profile_name == DEFAULT_PROFILE:
+            self.composite_scope.injector = self.collapsed if self.collapsed is not None else self.injectors[0]
+            self.composite_scope.injector.composite_created = self.composite_scope
         return self.collapsed if self.collapsed is not None else self.injectors[0] if len(self.injectors) != 0 else None
 
     def contains_config_type(self, config_type: typing.Type):
@@ -163,5 +162,3 @@ class InjectionObservationField:
         return any([
             item in value for value in self.injectors
         ])
-
-

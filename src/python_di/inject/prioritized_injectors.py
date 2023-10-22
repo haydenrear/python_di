@@ -7,7 +7,7 @@ from typing import Optional
 import injector
 
 from python_util.concurrent.synchronized_lock_stripe import synchronized_lock_striping, LockStripingLocks
-from python_di.env.base_env_properties import Environment
+from python_di.env.base_env_properties import Environment, DEFAULT_PROFILE
 from python_di.inject.injection_field import InjectionObservationField
 from python_di.env.profile import Profile
 from python_di.inject.composite_injector import CompositeInjector, CompositeScope, ProfileScope
@@ -72,16 +72,16 @@ class InjectorsPrioritized:
         self.profile_props = profile_props
         self.profile_scopes = {}
         self.injectors: typing.OrderedDict[Profile, InjectionObservationField] = collections.OrderedDict({})
-        self.composite_injector = CompositeInjector([], profile=default_profile)
-        self.profile_scopes[default_profile.profile_name] = self.composite_injector.get(ProfileScope)
-        self.composite_scope: CompositeScope = CompositeScope(self.composite_injector)
-        self.composite_injector.composite_created = self.composite_scope
+        composite_injector = CompositeInjector([], profile=default_profile)
+        self.profile_scopes[default_profile.profile_name] = composite_injector.get(ProfileScope)
+        self.composite_scope: CompositeScope = CompositeScope(composite_injector)
+        composite_injector.composite_created = self.composite_scope
         self.injectors[default_profile] = InjectionObservationField(
-            [self.composite_injector],
+            [composite_injector],
             profile_scope=self.profile_scopes[default_profile.profile_name],
             composite_scope=self.composite_scope
         )
-        bind_composite_scope(self.composite_injector, self.composite_scope)
+        bind_composite_scope(composite_injector, self.composite_scope)
         self.config_idx: dict[typing.Type, Profile] = {}
         self.profiles: Optional[ProfileProperties] = None
         self.multibind_registrar: dict[typing.Type, typing.List[typing.Type]] = {}
@@ -156,6 +156,7 @@ class InjectorsPrioritized:
         :param profile:
         :return:
         """
+        from python_di.env.env_properties import DEFAULT_PROFILE
         if profile.profile_name not in self.profile_props:
             self.profile_props[profile.profile_name] = profile
         if profile not in self.injectors.keys():
@@ -165,12 +166,11 @@ class InjectorsPrioritized:
             self.injectors[profile] = InjectionObservationField(injectors=[created_injector],
                                                                 profile_scope=self.profile_scopes[profile.profile_name],
                                                                 composite_scope=self.composite_scope)
-            bind_composite_scope(created_injector, self.composite_scope)
         else:
             LoggerFacade.debug(f"Appending new injector {profile}.")
             created_injector = CompositeInjector(inject_value, profile=self.profile_scopes[profile.profile_name],
                                                  scope=self.composite_scope)
-            bind_composite_scope(created_injector, self.composite_scope)
+
             self.injectors[profile].register_injector(created_injector)
         LoggerFacade.debug(f"After adding new profile {profile} to {[i for i in self.injectors.keys()]}.")
 
@@ -243,7 +243,8 @@ class InjectorsPrioritized:
             yield from self.yield_all_inj({profile})
 
     def _yield_single_profile(self, profile):
-        yield self.injectors[profile].collapse_injectors()
+        next_profile = self.injectors[profile]
+        yield next_profile.collapse_injectors()
 
     def _do_check_if_bound(self, concrete, concrete_value=None):
         """

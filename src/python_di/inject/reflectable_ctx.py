@@ -4,6 +4,7 @@ import typing
 import injector
 from injector import Binder
 
+from python_di.inject.inject_context_di import inject_context_di
 from python_di.inject.injector_provider import InjectionContext, T
 from python_di.reflect_scanner.class_parser import ClassFnParser, ClassDefParser, ClassDefInnerParser
 from python_di.reflect_scanner.file_parser import ASTNodeParser, FileParser
@@ -21,11 +22,14 @@ from python_di.reflect_scanner.type_introspector import TypeIntrospector, Attrib
     ConstantIntrospecter
 
 
-def bind_multi_bind(multi_bind: typing.List[typing.Type[T]], binder, multi_bind_name):
+@inject_context_di()
+def bind_multi_bind(multi_bind: typing.List[typing.Type[T]], binder, multi_bind_name,
+                    ctx: typing.Optional[InjectionContext] = None):
     for to_bind in multi_bind:
-        binder.bind(to_bind, to_bind, scope=injector.singleton)
+        if to_bind not in binder._bindings.keys():
+            binder.bind(to_bind, to_bind, scope=injector.singleton)
     binder.multibind(multi_bind_name, lambda: [
-        InjectionContext.get_interface(to_bind) for to_bind in multi_bind
+        ctx.get_interface(to_bind, scope=injector.singleton) for to_bind in multi_bind
     ], scope=injector.singleton)
 
 

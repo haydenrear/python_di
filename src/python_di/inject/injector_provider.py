@@ -375,8 +375,6 @@ class InjectionContextInjector:
                                   f"number of bindings")
             else:
                 binding, _ = injector_value.binder.get_binding(type_value)
-                if isinstance(scope_decorator, injector.ScopeDecorator):
-                    scope_decorator = scope_decorator.scope
                 if scope_decorator is not None and binding.scope != scope_decorator:
                     LoggerFacade.error(f"Scope requested was {scope_decorator}, but scope contained in {profile} was "
                                        f"{binding.scope}.")
