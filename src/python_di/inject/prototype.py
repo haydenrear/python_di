@@ -124,7 +124,7 @@ def prototype_scope(cls):
             wrapped_values = retrieve_wrapped_factory_fn(underlying)
             assert wrapped_values is not None
             wrapped_fn, wrapped_values = wrapped_values
-
+            cls.clean_kwargs(kwargs)
             bean_scopes, construct_values, prototype_decorator \
                 = cls.get_bean_factory_data(kwargs, wrapped_fn, wrapped_values)
 
@@ -144,6 +144,12 @@ def prototype_scope(cls):
             else:
                 created = wrapped_fn(**construct_values)
                 return created
+
+        @classmethod
+        def clean_kwargs(cls, kwargs):
+            to_delete = [k for k, v in kwargs.items() if v is None]
+            for k in to_delete:
+                del kwargs[k]
 
         @classmethod
         def get_bean_descr(cls, bean_scopes, to_get_key):
