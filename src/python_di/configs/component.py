@@ -53,6 +53,8 @@ def register_component_factory(component_factory_data: ComponentFactory, ctx: Op
             ctx.register_component(cls, binding, scope, DEFAULT_PROFILE)
     elif scope is None or scope == injector.singleton:
         ctx.register_component(cls, bindings=binding, scope=injector.singleton)
+    elif scope is not None:
+        ctx.register_component(cls, bindings=binding, scope=scope)
 
     for c, f in component_factory_data.component_self_factory.items():
         cls = f.cls

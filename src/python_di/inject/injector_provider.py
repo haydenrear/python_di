@@ -411,6 +411,8 @@ class InjectionContext:
     def register_injector_from_module(cls, mod: list[type[injector.Module]],
                                       profile: Optional[str] = None,
                                       priority: Optional[int] = None):
+        if profile is not None:
+            profile = profile.lower()
         LoggerFacade.info("Registering module injector.")
         cls.injection_context.register_injector_from_module(mod, profile, priority)
 
@@ -419,12 +421,16 @@ class InjectionContext:
     def register_configuration(cls, configuration: typing.Type[DiConfiguration], underlying: typing.Type,
                                profile: Optional[str] = None, priority: Optional[str] = None,
                                bindings: list[typing.Type] = None):
+        if profile is not None:
+            profile = profile.lower()
         cls.initialize_env()
         cls.injection_context.register_configuration(configuration, underlying, profile, priority, bindings)
 
     @classmethod
     @injector.synchronized(injector_lock)
     def register_component(cls, concrete: typing.Type[T], bindings: list[type], scope, profile: Optional[str] = None):
+        if profile is not None:
+            profile = profile.lower()
         cls.initialize_env()
         return cls.injection_context.register_component(concrete, bindings, scope, profile)
 
@@ -432,6 +438,8 @@ class InjectionContext:
     @injector.synchronized(injector_lock)
     def register_component_value(cls, mod: list[type], bind_to: T, scope=None, priority: Optional[int] = None,
                                  profile: Optional[str] = None):
+        if profile is not None:
+            profile = profile.lower()
         cls.injection_context.register_component_value(mod, bind_to, scope, priority,  profile)
 
     @classmethod
@@ -455,6 +463,8 @@ class InjectionContext:
     @classmethod
     @injector.synchronized(injector_lock)
     def register_config_properties_value(cls, type_to_register: ConfigPropsT, profile: str, priority: int):
+        if profile is not None:
+            profile = profile.lower()
         cls.initialize_env()
         cls.injection_context.environment.register_config_property_values(type_to_register, profile, priority)
         return type_to_register
@@ -463,6 +473,8 @@ class InjectionContext:
     @injector.synchronized(injector_lock)
     def get_interface(cls, type_value: typing.Type[T], profile: str = None,
                       scope: injector.ScopeDecorator = None, **kwargs) -> Optional[T]:
+        if profile is not None:
+            profile = profile.lower()
         from python_di.configs.constants import DiUtilConstants
         if scope is None:
             scope = injector.singleton
@@ -505,6 +517,8 @@ class InjectionContext:
                                         profile: Optional[str] = None,
                                         priority: Optional[int] = None,
                                         prefix_name: Optional[str] = None):
+        if profile is not None:
+            profile = profile.lower()
         cls.initialize_env()
         cls.injection_context.environment.register_config_property_values(property_values, profile, priority,
                                                                           prefix_name)
@@ -512,6 +526,8 @@ class InjectionContext:
     @classmethod
     @injector.synchronized(injector_lock)
     def get_property_with_default(cls, key, default, profile_name=None):
+        if profile_name is not None:
+            profile_name = profile_name.lower()
         return cls.injection_context.get_property_with_default(key, default, profile_name)
 
 
