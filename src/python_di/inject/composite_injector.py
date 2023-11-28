@@ -319,7 +319,9 @@ class CompositeInjector(injector.Injector):
         return self.immutable.is_set()
 
     def __contains__(self, item: typing.Type[T]):
-        return (item in self.binder._bindings.keys() or item in self.composite_created._context.keys())
+        is_in_binding_keys = item in self.binder._bindings.keys()
+        is_in_composite = item in self.composite_created._context.keys()
+        return (is_in_binding_keys or is_in_composite)
         # or item in self.composite_created.injector.binder._bindings.keys())
 
     def __iter__(self):

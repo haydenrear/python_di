@@ -152,14 +152,18 @@ class InjectionContextInjector:
                       scope: injector.ScopeDecorator = None, **kwargs) -> Optional[T]:
         created_profile = self._retrieve_create_profile(profile) if profile is not None else None
         self.initialize_injector_factories(self._is_lazy_set(), type_value)
-        found_obj = self._perform_injector(lambda i, exc: self.get_binding(i, type_value, created_profile, scope, **kwargs),
+        found_obj = self._perform_injector(lambda i, exc: self.get_binding(i, type_value, created_profile,
+                                                                           scope, **kwargs),
                                            profile, type_value, scope)
         if found_obj is not None:
             return found_obj
         elif is_multibindable(type_value):
             from python_di.inject.prioritized_injectors import InjectorsPrioritized
             self.injectors_dictionary: InjectorsPrioritized = self.injectors_dictionary
-            return self.injectors_dictionary.register_multibind(type_value, scope, created_profile)
+            registered = self.injectors_dictionary.register_multibind(
+                type_value, scope, created_profile)
+            return registered
+
 
     def get_property_with_default(self, key, default, profile_name=None):
         if self.environment is not None:
@@ -378,7 +382,7 @@ class InjectionContextInjector:
                 if scope_decorator is not None and binding.scope != scope_decorator:
                     LoggerFacade.error(f"Scope requested was {scope_decorator}, but scope contained in {profile} was "
                                        f"{binding.scope}.")
-                return injector_value.get(type_value, binding.scope)
+                return injector_value.get(type_value, scope_decorator)
 
     @classmethod
     def retrieve_profile_name(cls, profile):

@@ -49,6 +49,7 @@ def inject_context_di():
 class InjectionType(enum.Enum):
     Property = enum.auto()
     Dependency = enum.auto()
+    Provided = enum.auto()
 
 
 @dataclasses.dataclass(init=True)

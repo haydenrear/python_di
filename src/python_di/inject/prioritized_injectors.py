@@ -6,13 +6,15 @@ from typing import Optional
 
 import injector
 
-from python_util.concurrent.synchronized_lock_stripe import synchronized_lock_striping, LockStripingLocks
-from python_di.env.base_env_properties import Environment, DEFAULT_PROFILE
-from python_di.inject.injection_field import InjectionObservationField
+from python_di.env.base_env_properties import Environment
 from python_di.env.profile import Profile
-from python_di.inject.composite_injector import CompositeInjector, CompositeScope, ProfileScope
+from python_di.inject.composite_injector import CompositeInjector, CompositeScope, ProfileScope, profile_scope, \
+    composite_scope
 from python_di.inject.inject_utils import is_scope_singleton_scope
+from python_di.inject.injection_field import InjectionObservationField
 from python_di.inject.injector_provider import RegisterableModuleT, is_multibindable
+from python_di.inject.reflectable_ctx import bind_multi_bind
+from python_util.concurrent.synchronized_lock_stripe import synchronized_lock_striping, LockStripingLocks
 from python_util.logger.logger import LoggerFacade
 
 T = typing.TypeVar("T")
@@ -156,7 +158,6 @@ class InjectorsPrioritized:
         :param profile:
         :return:
         """
-        from python_di.env.env_properties import DEFAULT_PROFILE
         if profile.profile_name not in self.profile_props:
             self.profile_props[profile.profile_name] = profile
         if profile not in self.injectors.keys():
@@ -175,20 +176,21 @@ class InjectorsPrioritized:
         LoggerFacade.debug(f"After adding new profile {profile} to {[i for i in self.injectors.keys()]}.")
 
     @injector.synchronized(synchronized_lock)
-    def yield_all_inj(self, exclusions: set[Profile] = None):
+    def yield_all_inj(self, ty: typing.Type, exclusions: set[Profile] = None):
         for p, j in sorted(self.injectors.items(), key=lambda k_v: k_v[0].priority, reverse=True):
             if exclusions is not None and p in exclusions:
                 continue
             j: InjectionObservationField = j
             inj = j.collapse_injectors()
             log_binder_info(inj)
+            self._do_bind_multibind_composite(inj, p, ty)
             yield inj
 
     @synchronized_lock_striping(profile_locks, lock_arg_arg_name='profile')
     def register_component_value(self, mod: list[type], bind_to: T, scope, profile: Profile):
         self._assert_valid_binding(bind_to, mod, profile, scope)
         LoggerFacade.info(f"Registering component value for profile {profile}.")
-        injector_found: injector.Injector = next(self.retrieve_injector(None, profile=profile))
+        injector_found: injector.Injector = next(self.retrieve_injector(type(bind_to), profile=profile))
         if isinstance(scope, injector.ScopeDecorator):
             scope = scope.scope
         mod_type = type(bind_to)
@@ -202,6 +204,7 @@ class InjectorsPrioritized:
         if mod_type not in mod:
             injector_found.binder.bind(mod_type, provider, scope=scope)
 
+        self.do_init_multibind(mod, type(bind_to), injector_found)
 
     @synchronized_lock_striping(profile_locks, lock_arg_arg_name='profile')
     def register_component(self, concrete: typing.Type[T], bindings: list[typing.Type],
@@ -217,34 +220,58 @@ class InjectorsPrioritized:
     def register_multibind(self, to_get_multibind: typing.Type[T], scope,
                            profile: Profile) -> typing.Optional[T]:
         if to_get_multibind in self.multibind_registrar.keys():
-            injector_found: injector.Injector = next(self.retrieve_injector(None, profile=profile))
+            injector_found: injector.Injector = next(self.retrieve_injector(to_get_multibind, profile=profile))
             multibind_ = self.multibind_registrar[to_get_multibind]
             do_injector_bind(to_get_multibind, injector_found, multibind_)
             return injector_found.get(to_get_multibind)
+        else:
+            self.multibind_registrar[to_get_multibind] = []
+            return []
 
     def retrieve_injector(self, ty: typing.Type[T],
                           profile: Profile) -> typing.Generator[injector.Injector, None, None]:
 
         self._assert_injectors(profile, ty)
-
         if profile is not None and profile not in self.injectors.keys():
             composite_injector = create_bind_new_injector([], self.composite_scope, profile)
             self.profile_scopes[profile.profile_name] = composite_injector.get(ProfileScope, ProfileScope)
             self.injectors[profile] = InjectionObservationField(injectors=[composite_injector],
                                                                 profile_scope=self.profile_scopes[profile.profile_name],
                                                                 composite_scope=self.composite_scope)
+            self._do_bind_multibind_composite(composite_injector, profile, ty)
             yield composite_injector
         if profile is None or profile not in self.injectors.keys() or len(self.injectors[profile]) == 0:
             if profile in self.injectors.keys():
                 LoggerFacade.warn("Logger was empty but contained entry.")
-            yield from self.yield_all_inj()
+            yield from self.yield_all_inj(ty)
         else:
-            yield from self._yield_single_profile(profile)
-            yield from self.yield_all_inj({profile})
+            yield from self._yield_single_profile(ty, profile)
+            yield from self.yield_all_inj(ty, {profile})
 
-    def _yield_single_profile(self, profile):
+    def _do_bind_multibind_composite(self, composite_injector, profile, ty):
+        multibind_ty = typing.List[ty]
+        if multibind_ty in self.multibind_registrar.keys() and ty not in composite_injector:
+            if len(self.multibind_registrar[multibind_ty]) != 0:
+                scope_value = self.composite_scope if profile is None else self.profile_scopes[profile.profile_name]
+                composite_injector.multibind(
+                    multibind_ty,
+                    lambda: self.get_multibindable(profile_scope if scope_value is not None
+                                                   else composite_scope,
+                                                   composite_injector, ty),
+                    scope=scope_value
+                )
+
+    def get_multibindable(self, scope_value, composite_injector, ty):
+        out = []
+        for m in self.multibind_registrar[typing.List[ty]]:
+            out.append(composite_injector.get(m, scope_value))
+        return out
+
+    def _yield_single_profile(self, ty: typing.Type, profile):
         next_profile = self.injectors[profile]
-        yield next_profile.collapse_injectors()
+        composite_injector = next_profile.collapse_injectors()
+        self._do_bind_multibind_composite(composite_injector, profile, ty)
+        yield composite_injector
 
     def _do_check_if_bound(self, concrete, concrete_value=None):
         """
@@ -273,16 +300,26 @@ class InjectorsPrioritized:
                               f"value.")
 
     def _do_component_binding(self, bindings, concrete, profile, scope, concrete_value=None):
-        injector_found: injector.Injector = next(self.retrieve_injector(None, profile=profile))
+        injector_found: injector.Injector = next(self.retrieve_injector(concrete, profile=profile))
         if not binder_contains_item(injector_found, concrete):
-            injector_found.binder.bind(concrete, concrete if concrete_value is None else concrete, scope=scope)
+            injector_found.binder.bind(concrete,
+                                       concrete if concrete_value is None else concrete,
+                                       scope=scope)
+        self.do_init_multibind(bindings, concrete, injector_found)
+
+    def do_init_multibind(self, bindings, concrete, injector_found):
         for b in bindings:
             if not binder_contains_item(injector_found, b):
                 do_injector_bind(b, injector_found, concrete)
-            if typing.List[b] in self.multibind_registrar.keys():
+            self._bind_multibind_inner(b, concrete)
+        self._bind_multibind_inner(concrete, concrete)
+
+    def _bind_multibind_inner(self, b, concrete):
+        if typing.List[b] in self.multibind_registrar.keys():
+            if concrete not in self.multibind_registrar[typing.List[b]]:
                 self.multibind_registrar[typing.List[b]].append(concrete)
-            else:
-                self.multibind_registrar[typing.List[b]] = [concrete]
+        else:
+            self.multibind_registrar[typing.List[b]] = [concrete]
 
     def _retrieve_injectors_having(self, ty: typing.Type[T]) -> dict[Profile, CompositeInjector]:
         return dict(filter(lambda k_v: ty in k_v[1], self.injectors.items()))

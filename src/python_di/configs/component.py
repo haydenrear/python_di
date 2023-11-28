@@ -64,7 +64,8 @@ def register_component_factory(component_factory_data: ComponentFactory, ctx: Op
                                      f.scope, f.priority, f.profile)
 
 
-def component(bind_to: list[type] = None, profile: typing.Union[str, None, list[str]] = None,
+def component(bind_to: list[type] = None,
+              profile: typing.Union[str, None, list[str]] = None,
               scope: Optional[injector.ScopeDecorator] = None):
 
     def class_decorator_inner(cls):
