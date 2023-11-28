@@ -8,14 +8,14 @@ from typing import Optional
 import injector as injector
 from injector import Binder
 
+from python_di.inject.multibind_util import is_multibindable
 from python_util.concurrent.synchronized_lock_stripe import LockStripingLocks
 from python_di.configs.base_config import DiConfiguration
 from python_di.env.base_module_config_props import ConfigurationProperties
 from python_di.env.init_env import EnvironmentProvider, retrieve_env_profile
 from python_di.env.property_source import PropertySource
-from python_di.inject.composite_injector import CompositeInjector, ProfileScope, PrototypeScopeDecorator
+from python_di.inject.composite_injector import CompositeInjector, PrototypeScopeDecorator
 from python_util.logger.logger import LoggerFacade
-from python_util.reflection.reflection_utils import is_type_instance_of
 
 T = typing.TypeVar("T")
 
@@ -533,12 +533,6 @@ class InjectionContext:
         if profile_name is not None:
             profile_name = profile_name.lower()
         return cls.injection_context.get_property_with_default(key, default, profile_name)
-
-
-def is_multibindable(type_to_check: typing.Type[T]):
-    return (is_type_instance_of(type_to_check, dict)
-            or is_type_instance_of(type_to_check, set)
-            or is_type_instance_of(type_to_check, list))
 
 
 def create_add_default_profile(profile_props, priority, profile):

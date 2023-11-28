@@ -6,7 +6,9 @@ from typing import Union, Iterable, Type
 import injector
 from injector import T, Provider, synchronized, InstanceProvider, ScopeDecorator
 
+import python_util.reflection.reflection_utils
 from python_di.env.profile import Profile
+from python_di.inject.multibind_util import is_multibindable
 from python_util.logger.logger import LoggerFacade
 
 CompositeInjectorT = typing.ForwardRef("CompositeInjectorT")
@@ -118,7 +120,15 @@ class CompositeScope(injector.SingletonScope):
         else:
             provider = InstanceProvider(provider.get(self.injector))
             self._context[key] = provider
+            self.register_binding_idempotently(key, provider)
             return provider
+
+    def register_binding_idempotently(self, key, provider):
+        if key not in self.injector.binder._bindings.keys():
+            if is_multibindable(key):
+                self.injector.binder.multibind(key, provider, composite_scope)
+            else:
+                self.injector.binder.bind(key, provider, composite_scope)
 
     def register_binding(self, key: Type[T], value: T):
         self._context[key] = InstanceProvider(value)

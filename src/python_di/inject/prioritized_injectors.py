@@ -12,7 +12,8 @@ from python_di.inject.composite_injector import CompositeInjector, CompositeScop
     composite_scope
 from python_di.inject.inject_utils import is_scope_singleton_scope
 from python_di.inject.injection_field import InjectionObservationField
-from python_di.inject.injector_provider import RegisterableModuleT, is_multibindable
+from python_di.inject.injector_provider import RegisterableModuleT
+from python_di.inject.multibind_util import is_multibindable
 from python_di.inject.reflectable_ctx import bind_multi_bind
 from python_util.concurrent.synchronized_lock_stripe import synchronized_lock_striping, LockStripingLocks
 from python_util.logger.logger import LoggerFacade
