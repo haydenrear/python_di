@@ -221,11 +221,11 @@ def configuration(priority: Optional[int] = None, profile: Optional[str] = None)
 @inject_context()
 def component_scan(base_packages: list[str] = None,
                    configs: list[typing.Type] = None,
-                   node_ty: typing.List[typing.Type] = None):
+                   base_classes: typing.List[typing.Type] = None):
     """
     :param base_packages:
     :param configs:
-    :param node_ty: To interpret and add to context - as component scan can be based on components interpreted.
+    :param base_classes: To interpret and add to context - as component scan can be based on components interpreted.
     :return:
     """
     inject = component_scan.inject_context()
