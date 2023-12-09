@@ -259,9 +259,9 @@ class CompositeInjector(injector.Injector):
         return child_injector
 
     def merge_parent(self, curr, curr_parent):
-        if curr_parent.parent is not None:
-            self.merge_parent(curr_parent, curr_parent.parent)
-            self._merge_bindings_static(curr_parent, curr_parent.parent)
+        if curr_parent.current is not None:
+            self.merge_parent(curr_parent, curr_parent.current)
+            self._merge_bindings_static(curr_parent, curr_parent.current)
         self._merge_bindings_static(curr, curr_parent)
 
     @classmethod
