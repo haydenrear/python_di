@@ -286,6 +286,8 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
                     if yml_file not in self.properties_loaders.keys():
                         self.properties_loaders[yml_file] = PropertyLoader(yml_file)
                     by_ty = self.properties_loaders[yml_file].load_property_by_ty(ty, prefix_name)
+                    assert by_ty is not None, (f"{prefix_name} had property that was None for {ty} and {yml_file}. "
+                                               f"There may be a property missing.")
                     if profile_name not in self.config_properties.keys():
                         LoggerFacade.debug(f"Creating config property for {profile_name}: {by_ty}.")
                         self.config_properties[profile_name] = PropertySource(profile_name)

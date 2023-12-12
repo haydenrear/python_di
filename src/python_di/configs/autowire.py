@@ -52,7 +52,6 @@ class Autowired:
 
 
 def autowired(profile: Optional[typing.Union[Profile, str]] = None):
-
     LoggerFacade.debug(f"Creating autowire constructor.")
 
     def create_constructor(cls):
@@ -68,23 +67,54 @@ def autowired(profile: Optional[typing.Union[Profile, str]] = None):
                 LoggerFacade.debug(f"Initializing autowire proxy for {underlying}.")
                 super().__init__(*args, **kwargs)
                 call_constructable(cls, underlying, self, AutowireProxy, **kwargs)
+                call_post_construct, to_call = self._iterate_constructables()
+                self._do_construct_autowire(to_call)
+                self._call_post_constructs(call_post_construct)
+
+            @staticmethod
+            def _iterate_constructables():
+                """
+                Iterate over the class members (of the underlying class) and add all @injectable and @post_construct
+                to lists, and then return them.
+                :return:
+                """
                 call_post_construct = []
+                to_call = []
                 for k, v in underlying.__dict__.items():
                     if hasattr(v, DiUtilConstants.wrapped_fn.name):
                         wrapped_fn = getattr(v, DiUtilConstants.wrapped_fn.name)
                         is_wrapped_fn = hasattr(v, '__call__') and hasattr(v, DiUtilConstants.wrapped_fn.name)
                         if is_wrapped_fn and hasattr(wrapped_fn, DiUtilConstants.is_injectable.name):
                             assert hasattr(v, DiUtilConstants.wrapped_fn.name)
-                            do_inject, to_construct = self._retrieve_to_construct(v)
-                            if do_inject:
-                                underlying.__dict__[k](self, **to_construct)
+                            to_call.append((k, v))
                         elif is_wrapped_fn and hasattr(wrapped_fn, DiUtilConstants.post_construct.name):
                             LoggerFacade.info(f'{cls} has post construct.')
                             call_post_construct.append(v)
+                return call_post_construct, to_call
 
+            def _call_post_constructs(self, call_post_construct):
+                """
+                Call @post_construct
+                :param call_post_construct: list of functions annotated with @post_constructs, which have no arguments.
+                :return:
+                """
                 for c in call_post_construct:
                     LoggerFacade.info(f"Calling post construct in {cls} for {AutowireProxy}.")
                     c(self)
+
+            def _do_construct_autowire(self, to_call):
+                """
+                Autowire-ables are annotated with @injectable - they are in the above list, so retrieve the args
+                and then call them.
+                :param to_call:
+                :return:
+                """
+                for (k, v) in to_call:
+                    do_inject, to_construct = self._retrieve_to_construct(v)
+                    if do_inject:
+                        LoggerFacade.info(f"Calling inject on {v} for {k} and "
+                                          f"{to_construct}.")
+                        v(self, **to_construct)
 
             @staticmethod
             def _retrieve_to_construct(v):
@@ -133,7 +163,6 @@ def autowired(profile: Optional[typing.Union[Profile, str]] = None):
                             if hasattr(b, item):
                                 return getattr(b, item)
 
-
         AutowireProxy.proxied = underlying
         add_subs(underlying, [{ConstructableMarker: AutowireProxy}])
         return AutowireProxy
@@ -154,4 +183,3 @@ def config_option(bind_to: list[type] = None, profile: Optional[str] = None):
         return cls
 
     return class_decorator_inner
-
