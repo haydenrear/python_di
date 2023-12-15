@@ -64,7 +64,11 @@ def retrieve_callable_provider(v, profile) -> BeanFactoryProvider:
 
 
 def create_callable_provider_curry(v, profile, config):
-    return injector.CallableProvider(lambda: v(**create_callable_provider(v, profile, config)))
+    try:
+        return injector.CallableProvider(lambda: v(**create_callable_provider(v, profile, config)))
+    except TypeError as t:
+        LoggerFacade.error(f"Received type error for {v.__class__.__name__}: {t}.")
+        raise t
 
 
 def create_callable_provider(v, profile, config):
