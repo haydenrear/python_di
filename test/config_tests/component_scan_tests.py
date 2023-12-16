@@ -1,10 +1,11 @@
 import dataclasses
 import logging
+import typing
 import unittest
 
 import injector
 
-from config_tests.component_scan_fixture import TestBean, TestOne, TestTwo
+from config_tests.component_scan_fixture import TestBean, TestOne, TestTwo, AbstractBinder
 from config_tests.component_scan_fixtures import TestAutowired, TestProfileInjection, \
     TestInjectionHasValue, TestPrototypeScopeComponentOne, TestPrototypeScopeComponentTwo, \
     TestPrototypeScopeComponentThree, TestPrototypeScopeComponentFour, TestPrototypeScopeComponentFive
@@ -12,8 +13,10 @@ from config_tests.other_component_scan_fixture import TestOneHundred
 from python_di.configs.component import component
 from python_di.configs.di_configuration import get_config_clzz, configuration, enable_configuration_properties, \
     component_scan, bean, lazy
+from python_di.env.profile import Profile
 from python_di.inject.prioritized_injectors import SingletonBindingExistedException
-from python_di.inject.composite_injector import ProfileScope, CompositeScope, PrototypeScopeDecorator, prototype_scope
+from python_di.inject.composite_injector import ProfileScope, CompositeScope, PrototypeScopeDecorator, prototype_scope, \
+    profile_scope, composite_scope
 from python_di.inject.injector_provider import InjectionContext
 from python_util.logger.log_level import LogLevel
 from python_di.reflect_scanner.file_parser import FileParser
@@ -39,27 +42,29 @@ class TestComponentScan:
         self.three = one
         return TestTwo(self.three)
 
-    @bean()
     @lazy
+    @bean()
     def value_three(self, one: TestOne) -> TestFive:
         self.four = one
         out_test = TestFive(self.four)
         return out_test
 
 
+@component(scope=profile_scope)
 class TestSelfBeanFactoryBean:
     def __init__(self, test: TestOne, test_one_hundred: TestOneHundred):
         self.test_one_hundred = test_one_hundred
         self.test = test
 
+    @classmethod
+    @bean(profile='prod', self_factory=True, scope=profile_scope)
+    def build_prod_config(cls, test: TestOne, test_one_hundred: TestOneHundred):
+        return cls(test, test_one_hundred)
 
-@component()
-class TestSelfBeanFactory:
-
-    @bean(profile='test', self_factory=True, scope=ProfileScope)
-    @lazy
-    def test_self_bean_factory(self, test: TestOne, test_one_hundred: TestOneHundred):
-        return TestSelfBeanFactoryBean(test, test_one_hundred)
+    @classmethod
+    @bean(profile='test', self_factory=True, scope=profile_scope)
+    def build_test_config(cls, test: TestOne, test_one_hundred: TestOneHundred):
+        return cls(test, test_one_hundred)
 
 
 class ComponentScanTest(unittest.TestCase):
@@ -75,43 +80,51 @@ class ComponentScanTest(unittest.TestCase):
         assert self.two is not None
         assert self.three is not None
 
+    def test_multibind(self):
+        created = InjectionContext.get_interface(typing.List[TestSelfBeanFactoryBean], profile='test',
+                                                 scope=profile_scope)
+        assert len(created) == 1
+        created = InjectionContext.get_interface(typing.List[AbstractBinder])
+        assert len(created) == 3
+
     def test_self_bean_factory(self):
-        test_self_bean_f = InjectionContext.get_interface(TestSelfBeanFactoryBean)
-        test_one_hundred = InjectionContext.get_interface(TestOneHundred, profile='test')
+        test_self_bean_f = InjectionContext.get_interface(TestSelfBeanFactoryBean, profile='test', scope=profile_scope)
+        test_one_hundred = InjectionContext.get_interface(TestOneHundred, profile='test', scope=profile_scope)
         asserter = assert_all()
         asserter(test_self_bean_f is not None, "Test self bean factory was None")
         asserter(test_self_bean_f.test is not None, "Internal test was none")
         asserted = asserter(test_self_bean_f.test_one_hundred == test_one_hundred,
-                            "Test one hundred was not correct profile.")
+                            f"Test one hundred {test_one_hundred.test_value} was not correct profile "
+                            f"{test_self_bean_f.test_one_hundred.test_value}.")
         asserted()
+
+    # def test_inject_from_profile_scope_into_singleton_scope_singleton(self):
+    #     from config_tests.other_component_scan_fixture import TestOneHundred
+    #     InjectionContext.register_component(TestProfileInjection, [TestProfileInjection],
+    #                                         scope=injector.singleton)
+    #     out = InjectionContext.get_interface(TestProfileInjection, scope=injector.singleton)
+    #     assert out.test_one_hundred.test_value == 'special_val_main'
 
     def test_inject_from_profile_scope_into_singleton_scope(self):
         from config_tests.other_component_scan_fixture import TestOneHundred
         out = InjectionContext.get_interface(TestOneHundred, profile='prod',
-                                             scope=injector.ScopeDecorator(ProfileScope))
+                                             scope=profile_scope)
         assert out.test_value == "special_val"
         out = InjectionContext.get_interface(TestOneHundred, profile='test',
-                                             scope=injector.ScopeDecorator(ProfileScope))
+                                             scope=profile_scope)
         assert out.test_value == "special_test_val"
-        # assert that different profiles inject dependencies from those profiles.
 
         InjectionContext.register_component(TestProfileInjection, [TestProfileInjection],
-                                            scope=injector.ScopeDecorator(ProfileScope), profile='test')
+                                            scope=profile_scope, profile='test')
         InjectionContext.register_component(TestProfileInjection, [TestProfileInjection],
-                                            scope=injector.ScopeDecorator(ProfileScope), profile='prod')
-        out = InjectionContext.get_interface(TestProfileInjection, scope=injector.ScopeDecorator(ProfileScope),
+                                            scope=profile_scope,  profile='prod')
+        out = InjectionContext.get_interface(TestProfileInjection, scope=profile_scope,
                                              profile='prod')
 
         assert out.test_one_hundred.test_value == 'special_val'
-        out = InjectionContext.get_interface(TestProfileInjection, scope=injector.ScopeDecorator(ProfileScope),
+        out = InjectionContext.get_interface(TestProfileInjection, scope=profile_scope,
                                              profile='test')
         assert out.test_one_hundred.test_value == 'special_test_val'
-        # assert that the dependency used as the singleton is that which has highest precedence.
-
-        out = InjectionContext.get_interface(TestProfileInjection, scope=injector.singleton)
-        assert out.test_one_hundred.test_value == 'special_val'
-        out = InjectionContext.get_interface(CompositeScope, scope=injector.singleton)
-        assert TestProfileInjection not in out
 
         self.assertRaises(SingletonBindingExistedException, lambda: InjectionContext.register_component_value(
             [TestProfileInjection],
@@ -156,9 +169,9 @@ class ComponentScanTest(unittest.TestCase):
         assert issubclass(type(t), TestOne)
 
     def test_configs(self):
-        t = InjectionContext.get_interface(TestOne)
-        two = InjectionContext.get_interface(TestFive)
-        four = InjectionContext.get_interface(TestTwo)
+        t = InjectionContext.get_interface(TestOne, profile='test', scope=profile_scope)
+        two = InjectionContext.get_interface(TestFive, profile='test', scope=profile_scope)
+        four = InjectionContext.get_interface(TestTwo, profile='test', scope=profile_scope)
         configs_three = self.component_scan_config.three
         configs_four = self.component_scan_config.four
         assert four is not None

@@ -89,6 +89,7 @@ def prototype_scope_decorator_factory(
     prototype_scope_decorators = {}
     if profile is not None:
         profile = profile.lower()
+
     @synchronized(prototype_scope_lock)
     def retrieve_prototype_scope_fn():
         nonlocal prototype_scope_decorators
@@ -118,7 +119,8 @@ class CompositeScope(injector.SingletonScope):
         if key in self._context.keys():
             return self._context[key]
         else:
-            provider = InstanceProvider(provider.get(self.injector))
+            provider_found = provider.get(self.injector)
+            provider = InstanceProvider(provider_found)
             self._context[key] = provider
             self.register_binding_idempotently(key, provider)
             return provider
@@ -274,18 +276,19 @@ class CompositeInjector(injector.Injector):
         for binding_key, binding_found in to_merge_from:
             if binding_key != injector.Injector and binding_key != injector.Binder and binding_key != ProfileScope:
                 from python_di.inject.prioritized_injectors import do_injector_bind
-                if binding_key not in to_merge_into:
+                if binding_key not in to_merge_into.binder._bindings.keys():
                     do_injector_bind(binding_found.interface, to_merge_into, binding_found.provider,
                                      binding_found.scope)
                 elif is_singleton_scope(binding_found):
                     do_injector_bind(binding_found.interface, to_merge_into, binding_found.provider,
                                      binding_found.scope)
             elif binding_key == ProfileScope and to_merge_into.profile_scope is not None:
-                if (to_merge_into.profile_scope != to_merge_from.profile_scope
-                        and to_merge_from.profile_scope.profile == to_merge_into.profile_scope.profile):
+                from python_di.inject.prioritized_injectors import do_injector_bind
+                if to_merge_from.profile_scope.profile == to_merge_into.profile_scope.profile:
                     for c, v in to_merge_into.profile_scope._context.items():
                         if c not in to_merge_from.profile_scope._context.keys():
                             to_merge_into.profile_scope._context[c] = v
+
 
         return to_merge_into
 

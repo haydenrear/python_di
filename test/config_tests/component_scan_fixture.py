@@ -1,3 +1,4 @@
+import abc
 import dataclasses
 
 import injector
@@ -30,3 +31,22 @@ class TestOne(TestThree):
 @dataclasses.dataclass(init=True)
 class TestTwo:
     test_one: TestOne
+
+
+class AbstractBinder(abc.ABC):
+    pass
+
+
+@component(bind_to=[AbstractBinder])
+class MultibindOne(AbstractBinder):
+    pass
+
+
+@component(bind_to=[AbstractBinder])
+class MultibindTwo(AbstractBinder):
+    pass
+
+
+@component(bind_to=[AbstractBinder])
+class MultibindThree(AbstractBinder):
+    pass

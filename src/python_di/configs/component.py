@@ -53,7 +53,8 @@ def register_component_factory(component_factory_data: ComponentFactory, ctx: Op
             ctx.register_component(cls, binding, scope, DEFAULT_PROFILE)
     elif scope is None or scope == injector.singleton:
         ctx.register_component(cls, bindings=binding, scope=injector.singleton)
-    elif scope is not None:
+    elif (scope is not None and len(component_factory_data.component_self_factory) == 0
+          and not ctx.contains_interface(cls)):
         ctx.register_component(cls, bindings=binding, scope=scope)
 
     for c, f in component_factory_data.component_self_factory.items():
@@ -71,9 +72,8 @@ def component(bind_to: list[type] = None,
     def class_decorator_inner(cls):
         self_factories = create_self_factories(cls)
         binding = get_bindings(cls)
-        underlying = get_underlying(cls)
         factory = ComponentFactory(
-            scope=scope, cls=cls, underlying=underlying,
+            scope=scope, cls=cls, underlying=cls,
             binding=binding, profiles=profile,
             component_self_factory=self_factories
         )

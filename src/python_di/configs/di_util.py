@@ -44,20 +44,18 @@ class BeanFactoryProvider:
         self.value = value
 
     def build(self, config: DiConfiguration) -> dict[str, injector.CallableProvider]:
-        from python_di.env.env_properties import DEFAULT_PROFILE
+        from python_di.env.base_env_properties import DEFAULT_PROFILE
         if isinstance(self.profile, list):
             out_cb = {p: self.value(config, p) for p in self.profile}
         elif isinstance(self.profile, str):
             out_cb = {self.profile: self.value(config, self.profile)}
         else:
             out_cb = {DEFAULT_PROFILE: self.value(config, DEFAULT_PROFILE)}
-        if DEFAULT_PROFILE not in out_cb.keys():
-            out_cb[DEFAULT_PROFILE] = self.value(config, DEFAULT_PROFILE)
 
         return out_cb
 
 
-def retrieve_callable_provider(v, profile) -> BeanFactoryProvider:
+def retrieve_callable_provider(v, profile, priority = None) -> BeanFactoryProvider:
     return BeanFactoryProvider(lambda config, profile_created: create_callable_provider_curry(v, profile_created,
                                                                                               config),
                                profile)
@@ -66,7 +64,7 @@ def retrieve_callable_provider(v, profile) -> BeanFactoryProvider:
 def create_callable_provider_curry(v, profile, config):
     try:
         return injector.CallableProvider(lambda: v(**create_callable_provider(v, profile, config)))
-    except TypeError as t:
+    except Exception as t:
         LoggerFacade.error(f"Received type error for {v.__class__.__name__}: {t}.")
         raise t
 

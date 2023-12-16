@@ -6,3 +6,6 @@ profiles:
     prod:
       profile_name: prod
       priority: 100
+    main_profile:
+      profile_name: main_profile
+      priority: 1000000

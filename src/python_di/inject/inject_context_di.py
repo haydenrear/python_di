@@ -8,9 +8,10 @@ import injector
 
 import python_util.reflection.reflection_utils
 from python_di.env.base_env_properties import DEFAULT_PROFILE
+from python_di.inject.composite_injector import profile_scope
 from python_di.inject.inject_context import inject_context
 from python_di.inject.inject_utils import get_create_inject_context
-from python_di.inject.injector_provider import InjectionContext
+from python_di.inject.injector_provider import InjectionContext, T
 from python_util.logger.logger import LoggerFacade
 from python_util.reflection.reflection_utils import get_fn_param_types
 
@@ -87,8 +88,8 @@ def retrieve_descriptor(value: typing.Union[typing.Type, str],
                         injection_descriptor: typing.Optional[InjectionDescriptor] = None,
                         ctx: typing.Optional[InjectionContext] = None):
     if injection_descriptor is None:
-        assert isinstance(value, typing.Type)
-        if scope_decorator is not None:
+        assert isinstance(value, type)
+        if scope_decorator is None:
             scope_decorator = injector.singleton
         return ctx.get_interface(value, profile=profile, scope=scope_decorator)
     if injection_descriptor.skip_if_optional and 'Optional' in str(value):
@@ -104,10 +105,10 @@ def retrieve_descriptor(value: typing.Union[typing.Type, str],
                                                 else {}))
     else:
         assert injection_descriptor.injection_ty == InjectionType.Dependency
-        assert isinstance(value, typing.Type)
+        assert isinstance(value, type)
         if injection_descriptor.get_profile() is not None:
             profile = injection_descriptor.get_profile()
-        if injection_descriptor.get_scope() is None:
+        if injection_descriptor.get_scope() is not None:
             scope_decorator = injection_descriptor.get_scope()
         return ctx.get_interface(value, profile=profile, scope=scope_decorator)
 
@@ -116,20 +117,22 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
                 scope_decorator: injector.ScopeDecorator = None,
                 profile: str = None):
     """
-    Wrap the function that needs values from the context.
+    Wrap the function that needs values from the context. If the first argument in the decorated function is of
+    type ConfigType, then the injected arguments will use this profile to retrieve the dependencies.
     :param profile:
     :param scope_decorator:
     :param descr:
     :param ctx:
     :return:
     """
-
     def wrapper(fn):
         @functools.wraps(fn)
         def inject_proxy(*args, **kwargs):
             get_create_inject_context(fn)
             inject_proxy.wrapped_fn = fn
             args_to_call = {}
+            profile_found, scope_decorator_found, config_type = _retrieve_scope_data(args, kwargs)
+
             for i, k_v in enumerate(python_util.reflection.reflection_utils.get_all_fn_param_types(fn).items()):
                 fn_arg_key = k_v[0]
                 ty_default_tuple = k_v[1]
@@ -141,7 +144,7 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
                     args_to_call[fn_arg_key] = kwargs[fn_arg_key]
                 elif ty_value_reflected is not None:
                     args_to_call[fn_arg_key] = retrieve_descriptor(ty_value_reflected, fn_arg_key, default_value,
-                                                                   scope_decorator, profile,
+                                                                   scope_decorator_found, profile_found,
                                                                    descr[fn_arg_key]
                                                                    if descr is not None and fn_arg_key in descr.keys()
                                                                    else None)
@@ -150,6 +153,31 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
                                        "no type to inject from.")
             return fn(**args_to_call)
 
+        def _retrieve_scope_data(args, kwargs) -> (str, injector.ScopeDecorator, ...):
+            config_type, profile_scope_created = _get_profile_data(args, kwargs)
+            if profile_scope is not None:
+                scope_decorator_found = profile_scope_created
+            else:
+                scope_decorator_found = scope_decorator
+            if config_type is not None:
+                profile_found = config_type.name.lower()
+            else:
+                profile_found = profile
+            return profile_found, scope_decorator_found, config_type
+
         return inject_proxy
 
+    def _get_profile_data(args, kwargs) -> (object, injector.ScopeDecorator):
+        config_type = None
+        from drools_py.configs.config import ConfigType
+        for a in args:
+            if isinstance(a, ConfigType):
+                config_type = a
+        for a in kwargs.values():
+            if isinstance(a, ConfigType):
+                config_type = a
+
+        return config_type, profile_scope if config_type is not None else None
+
     return wrapper
+

@@ -8,7 +8,7 @@ from python_di.env.profile_config_props import ProfileProperties
 from python_di.env.property_source import PropertySource
 PropertyPrefix = str
 DEFAULT_PROFILE: str = 'main_profile'
-DEFAULT_PRIORITY = -100
+DEFAULT_PRIORITY = 1000000
 
 
 class Environment(ABC):

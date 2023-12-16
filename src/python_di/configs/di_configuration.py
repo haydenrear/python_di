@@ -11,7 +11,9 @@ from python_di.configs.di_util import get_underlying, retrieve_callable_provider
     get_wrapped_fn, BeanFactoryProvider, add_subs
 from python_di.configs.constants import DiUtilConstants
 from python_di.env.base_module_config_props import ConfigurationProperties
-from python_di.inject.inject_context_di import inject_context_di
+from python_di.env.profile_config_props import ProfileProperties
+from python_di.inject.composite_injector import composite_scope
+from python_di.inject.inject_context_di import inject_context_di, autowire_fn
 from python_di.inject.prioritized_injectors import do_bind
 from python_di.inject.inject_context import inject_context
 from python_di.inject.injector_provider import RegisterableModuleT, InjectionContext
@@ -81,9 +83,28 @@ class BuildableModule:
     def register_bean(self, bean_ty: typing.Type, provider: BeanFactoryProvider, scope):
         self.beans_builder.append((bean_ty, provider, scope))
 
+    @autowire_fn()
+    def _get_profile_priority(self, profile_name: typing.Union[str, None, list[str]], profile_config: ProfileProperties):
+        from python_di.env.base_env_properties import DEFAULT_PROFILE
+        if isinstance(profile_name, str | None):
+            if not profile_name or profile_name == DEFAULT_PROFILE:
+                return 10000000
+            if profile_name in profile_config.active_profiles.keys():
+                return profile_config[profile_name].priority
+        elif isinstance(profile_name, list):
+            return max([profile_config.active_profiles[p].priority for p in profile_name
+                        if p in profile_config.active_profiles.keys()])
+        return -1000
+
+    @autowire_fn()
     def build_beans(self, config: DiConfiguration) -> dict[str, RegisterableModuleT]:
         out_mods = {}
-        for (i, b, s) in self.beans_builder:
+        from python_di.env.base_env_properties import DEFAULT_PROFILE
+        for (i, b, s) in sorted(self.beans_builder,
+                                key=lambda bean_ty: self._get_profile_priority(
+                                    profile_name=bean_ty[1].profile if bean_ty[1].profile is not None
+                                    else DEFAULT_PROFILE
+                                )):
             built_mod = b.build(config)
             for p, m in built_mod.items():
                 if p in out_mods.keys():
@@ -102,8 +123,10 @@ class BuildableModule:
         [Binder], None]:
         return self.configure(bean_ty_cb)
 
-    def configure(self, bean_ty_cb: list[(typing.Type, CallableProvider, typing.Type)]) -> typing.Callable[
-        [Binder], None]:
+    def configure(
+            self,
+            bean_ty_cb: list[(typing.Type, CallableProvider, typing.Type)]
+    ) -> typing.Callable[[Binder], None]:
         return lambda binder: self.create_binder(binder, bean_ty_cb)
 
     @staticmethod
@@ -192,15 +215,18 @@ def configuration(priority: Optional[int] = None, profile: Optional[str] = None)
                     profile_found = fallback_profile
                 scope = v.scope
                 if hasattr(v, DiUtilConstants.is_bean.name):
-                    return_type = get_return_type_from_fn(v)
-                    if hasattr(v, DiUtilConstants.is_lazy.name):
-                        lazy_beans.register_bean(return_type,
-                                                 retrieve_callable_provider(v, profile_found),
-                                                 scope)
-                    else:
-                        beans.register_bean(return_type,
-                                            retrieve_callable_provider(v, profile_found),
-                                            scope)
+                    _register_bean_inner(beans, lazy_beans, profile_found, scope, v)
+
+    def _register_bean_inner(beans, lazy_beans, profile_found, scope, v):
+        return_type = get_return_type_from_fn(v)
+        if hasattr(v, DiUtilConstants.is_lazy.name):
+            lazy_beans.register_bean(return_type,
+                                     retrieve_callable_provider(v, profile_found),
+                                     scope)
+        else:
+            beans.register_bean(return_type,
+                                retrieve_callable_provider(v, profile_found),
+                                scope)
 
     def get_return_type_from_fn(v):
         return_type = get_return_type(v)
