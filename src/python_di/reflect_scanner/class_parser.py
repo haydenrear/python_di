@@ -6,7 +6,7 @@ import injector
 
 from python_di.reflect_scanner.file_parser import ASTNodeParser
 from python_di.reflect_scanner.function_parser import FnArgsParser, FnStatementParser
-from python_di.reflect_scanner.module_graph_models import FileNode, NodeType, ClassFunctionFileNode
+from python_di.reflect_scanner.module_graph_models import FileNode, NodeType, ClassFunctionFileNode, DecoratorFileNode
 
 
 class ClassDefInnerParser(ASTNodeParser, abc.ABC):
@@ -82,7 +82,8 @@ class ClassDefParser(ASTNodeParser):
         # TODO: add this to program parser
         for decorator in node.decorator_list:
             if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name):
-                decorator_node = FileNode(NodeType.DECORATOR, decorator.func.id)
+                decorator_node = DecoratorFileNode(class_file_node.id_value,
+                                                   decorator.func.id, NodeType.CLASS)
                 graph.add_node(decorator_node)
                 graph.add_edge(class_file_node, decorator_node)
 

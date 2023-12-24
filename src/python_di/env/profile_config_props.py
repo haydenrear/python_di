@@ -1,4 +1,6 @@
+import os
 import threading
+import typing
 import uuid
 from typing import Optional
 
@@ -11,10 +13,14 @@ from python_di.properties.configuration_properties_decorator import configuratio
 injector_lock = threading.RLock()
 
 
-@configuration_properties(prefix_name='profiles')
+@configuration_properties(
+    prefix_name='profiles',
+    fallback=os.path.join(os.path.dirname(__file__), 'fallback_profile_application.yml')
+)
 class ProfileProperties(ConfigurationProperties):
     from python_di.env.profile import Profile
     active_profiles: dict[str, Profile]
+    default_profile: Profile
 
     @injector.synchronized(injector_lock)
     def __setitem__(self, key, value):
@@ -54,14 +60,17 @@ class ProfileProperties(ConfigurationProperties):
             return profile
 
     @injector.synchronized(injector_lock)
-    def create_get_profile(self, profile_name: str):
+    def create_get_profile(self, profile_name: str, priority_set: typing.Optional[int] = None):
         from python_di.env.profile import Profile
         assert profile_name is not None
-        from python_di.inject.injector_provider import DEFAULT_PRIORITY
+        from python_di.inject.context_builder.profile_util import DEFAULT_PRIORITY
+        priority = DEFAULT_PRIORITY
         if profile_name in self.active_profiles:
             return self.active_profiles[profile_name]
         else:
-            self.active_profiles[profile_name] = Profile.new_profile(profile_name, DEFAULT_PRIORITY)
+            if priority_set is not None:
+                priority = priority_set
+            self.active_profiles[profile_name] = Profile.new_profile(profile_name, priority)
             return self.active_profiles[profile_name]
 
 
@@ -96,7 +105,7 @@ class ProfileProperties(ConfigurationProperties):
 
 
 def get_profile_module() -> ProfileProperties:
-    from python_di.inject.injector_provider import InjectionContext
+    from python_di.inject.context_builder.injection_context import InjectionContext
     profile_props: ProfileProperties = InjectionContext.get_interface(ProfileProperties)
     profile_props.active_profiles = sorted(profile_props.active_profiles)
     return profile_props

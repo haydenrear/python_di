@@ -1,19 +1,10 @@
-import abc
-import copy
 import typing
 
-import injector
-
-import python_util.reflection.reflection_utils
-from python_di.configs.base_config import DiConfiguration
-from python_di.configs.constants import DiUtilConstants
-from python_di.configs.constructable import ConstructableMarker
-from python_di.inject.inject_context import inject_context
-from python_util.logger.logger import LoggerFacade
+from python_di.configs.constants import DiUtilConstants, FnTy
 from python_util.reflection.reflection_utils import get_all_fn_param_types_no_default
 
 
-def get_wrapped_fn(fn) -> typing.Tuple[object, dict]:
+def get_wrapped_fn(fn) -> typing.Tuple[typing.Callable, dict]:
     """
     :param fn: the function for which to get the wrapped fn.
     :return: The wrapped fn (proxied value) and a dictionary that contains a mapping from the arg key to the arg type
@@ -23,9 +14,26 @@ def get_wrapped_fn(fn) -> typing.Tuple[object, dict]:
         fn = getattr(fn, DiUtilConstants.wrapped_fn.name)
     else:
         fn.wrapped_fn = fn
+    wrapped = retrieve_wrapped_fn_args(fn)
+    return fn, wrapped
+
+
+def retrieve_fn_ty(fn):
+    if hasattr(fn, '__name__') and fn.__name__ == '__init__':
+        return FnTy.init_method
+    for i, v in get_all_fn_param_types_no_default(fn).items():
+        if i == 'self':
+            return FnTy.self_method
+        elif i == 'cls':
+            return FnTy.class_method
+
+    return FnTy.static_method
+
+
+def retrieve_wrapped_fn_args(fn):
     wrapped = {i: v for i, v in get_all_fn_param_types_no_default(fn).items()
                if i != 'self' and i != 'args' and i != 'kwargs'}
-    return fn, wrapped
+    return wrapped
 
 
 def get_underlying(cls):
@@ -34,101 +42,6 @@ def get_underlying(cls):
     else:
         cls.proxied = cls
     return cls
-
-
-class BeanFactoryProvider:
-
-    def __init__(self, value: typing.Callable[[DiConfiguration, str], injector.CallableProvider],
-                 profile: typing.Union[str, list[str], None]):
-        self.profile = profile
-        self.value = value
-
-    def build(self, config: DiConfiguration) -> dict[str, injector.CallableProvider]:
-        from python_di.env.base_env_properties import DEFAULT_PROFILE
-        if isinstance(self.profile, list):
-            out_cb = {p: self.value(config, p) for p in self.profile}
-        elif isinstance(self.profile, str):
-            out_cb = {self.profile: self.value(config, self.profile)}
-        else:
-            out_cb = {DEFAULT_PROFILE: self.value(config, DEFAULT_PROFILE)}
-
-        return out_cb
-
-
-def retrieve_callable_provider(v, profile, priority = None) -> BeanFactoryProvider:
-    return BeanFactoryProvider(lambda config, profile_created: create_callable_provider_curry(v, profile_created,
-                                                                                              config),
-                               profile)
-
-
-def create_callable_provider_curry(v, profile, config):
-    try:
-        return injector.CallableProvider(lambda: v(**create_callable_provider(v, profile, config)))
-    except Exception as t:
-        LoggerFacade.error(f"Received type error for {v.__class__.__name__}: {t}.")
-        raise t
-
-
-def create_callable_provider(v, profile, config):
-    do_inject, to_construct_factories = retrieve_factory(v, profile)
-    provider_created = to_construct_factories
-    provider_created['self'] = config
-    return provider_created
-
-
-@inject_context()
-def retrieve_factory(v, profile):
-    inject = retrieve_factory.inject_context()
-    to_construct = {}
-    do_inject = True
-    items = getattr(v, DiUtilConstants.wrapped.name).items()
-    for key, val in items:
-        if key == 'self' or key == 'args' or key == 'kwargs' or key == 'cls':
-            continue
-        try:
-            LoggerFacade.info(f"Retrieving bean: {val} for bean factory: {v}.")
-            from python_di.env.env_properties import DEFAULT_PROFILE
-            from python_di.inject.composite_injector import profile_scope
-            found = inject.get_interface(val, profile,
-                                         scope=injector.singleton if profile is None or profile == DEFAULT_PROFILE
-                                         else profile_scope)
-            assert found is not None
-            to_construct[key] = found
-        except Exception as e:
-            LoggerFacade.warn(f"Failed to initialize test configuration {v} from getting {val}: {e}.")
-            to_construct[key] = None
-            do_inject = False
-            break
-    return do_inject, to_construct
-
-
-def get_constructable(tys):
-    count = 0
-    for ty in tys:
-        if isinstance(ty, dict) and ConstructableMarker in ty.keys():
-            return ty, count
-        count += 1
-    return None, None
-
-
-def add_constructable(underlying, constructable):
-    if hasattr(underlying, DiUtilConstants.subs.name):
-        for t in underlying.subs:
-            if isinstance(t, dict) and ConstructableMarker in t.keys():
-                LoggerFacade.info(f"Adding constructable {t}.")
-                t[ConstructableMarker].append(constructable[ConstructableMarker])
-
-
-def add_subs(underlying, tys: list):
-    constructable, idx = get_constructable(tys)
-    if constructable is not None:
-        add_constructable(underlying, tys)
-        tys.pop(idx)
-    if hasattr(underlying, DiUtilConstants.subs.name):
-        for t in tys:
-            underlying.subs.append(t)
-    else:
-        underlying.subs = tys
 
 
 def add_attr(underlying, to_add, name):
@@ -154,22 +67,3 @@ def get_sub(underlying, matches: typing.Callable) -> typing.Optional:
         for s in underlying.subs:
             if matches(s):
                 return s
-
-
-def call_constructable(cls, underlying, self_param, this_param, **kwargs):
-    constructed = set([])
-    if hasattr(underlying, DiUtilConstants.subs.name):
-        constructables, idx = get_constructable(underlying.subs)
-        if constructables is not None:
-            for constructable in constructables:
-                if constructable != this_param:
-                    LoggerFacade.debug(f"Calling constructable for {constructable}.")
-                    to_include = set(python_util.reflection.reflection_utils
-                                     .get_all_fn_param_types(constructable.__init__).keys())
-                    to_remove = kwargs.keys() - to_include
-                    copied = copy.copy(kwargs)
-                    for t in to_remove:
-                        del copied[t]
-                    constructable.__init__(self_param, **copied)
-                    constructed.add(constructable)
-

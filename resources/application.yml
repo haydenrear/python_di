@@ -1,6 +1,8 @@
 env_factories:
   factories:
     main_profile:
+      - factory: src.python_di.inject.context_builder.factory_ctx.FactoryCtx
+        lazy: False
       - factory: src.python_di.inject.reflectable_ctx.ReflectableCtx
         lazy: True
 scanner:

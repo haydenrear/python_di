@@ -4,8 +4,9 @@ import typing
 import injector
 
 import python_util.reflection.reflection_utils
-from python_di.env.base_env_properties import DEFAULT_PROFILE
-from python_di.inject.composite_injector import CompositeInjector, ProfileScope, CompositeScope, profile_scope
+from python_di.inject.profile_composite_injector.composite_injector import CompositeInjector, ProfileScope, \
+    CompositeScope, profile_scope, composite_scope
+from python_di.inject.profile_composite_injector.multibind_util import flatten_providers
 from python_util.logger.logger import LoggerFacade
 
 T = typing.TypeVar("T")
@@ -22,6 +23,7 @@ class InjectionObservationField:
     Allows for the registration of the dependencies for a profile per config, and then collapsing them into one
     CompositeInjector when the injector is retrieved by prioritized injectors.
     """
+
     def __init__(self, injectors: list[CompositeInjector] = None,
                  config_injectors: dict[typing.Type, list[CompositeInjector]] = None,
                  profile_scope: typing.Optional[ProfileScope] = None,
@@ -42,7 +44,6 @@ class InjectionObservationField:
         self.collapsed: typing.Optional[CompositeInjector] = None
         self.profile_injector: typing.Optional[CompositeInjector] = None
         self.registered_event: asyncio.Event = asyncio.Event()
-        self.multibind_registrar: dict[typing.Type, typing.List[typing.Type]] = {}
         self.composite_multibind_registrar: dict[typing.Type, typing.List[typing.Type]] = {}
 
     def register_injector(self, to_register: CompositeInjector):
@@ -81,6 +82,7 @@ class InjectionObservationField:
                 self.bind_scopes(self.collapsed)
 
         self.collapse_register_multibind()
+
         return self._retrieve_injector_inner()
 
     def bind_scopes(self, to_bind):
@@ -88,8 +90,7 @@ class InjectionObservationField:
 
     @classmethod
     def bind_scopes_static(cls, to_bind, profile_scope, composite_scope):
-        to_bind.binder.bind(ProfileScope, profile_scope,
-                            injector.ScopeDecorator(ProfileScope))
+        to_bind.binder.bind(ProfileScope, profile_scope, injector.ScopeDecorator(ProfileScope))
         profile_scope.injector = to_bind
         to_bind.binder.bind(CompositeScope, composite_scope, injector.singleton)
 
@@ -116,7 +117,8 @@ class InjectionObservationField:
         elif len(c) > 1:
             first_value = c[0]
             first_value = self._collapse_injectors(first_value, c[1:], self.profile_scope, self.composite_scope)
-            first_value = self._collapse_injectors(first_value, self.injectors, self.profile_scope, self.composite_scope)
+            first_value = self._collapse_injectors(first_value, self.injectors, self.profile_scope,
+                                                   self.composite_scope)
             self.injectors.clear()
             self.config_injectors[ty] = [first_value]
             self.collapsed = first_value
@@ -136,21 +138,20 @@ class InjectionObservationField:
         cls.bind_scopes_static(i, profile_scope, composite_scope)
         return i
 
-
-    def retrieve_injector(self):
+    def retrieve_injector(self, do_collapse: bool = True):
         """
         Returns the collapsed injector. Clears the register event because assumed that retrieval will modify.
         :return:
         """
-        if not self.registered_event.is_set():
+        if not self.registered_event.is_set() and do_collapse:
             self.collapse_injectors()
             self.registered_event.clear()
             return self._retrieve_injector_inner()
         else:
-            self.registered_event.clear()
             return self._retrieve_injector_inner()
 
     def _retrieve_injector_inner(self):
+        from python_di.env.base_env_properties import DEFAULT_PROFILE
         if self.profile_scope.profile.profile_name == DEFAULT_PROFILE:
             self.composite_scope.injector = self.collapsed if self.collapsed is not None else self.injectors[0]
             self.composite_scope.injector.composite_created = self.composite_scope
@@ -164,85 +165,88 @@ class InjectionObservationField:
             self.register_multibind([concrete], typing.List[i], scope)
 
     def register_multibind(self, in_collection_bindings: list[type], concrete, scope):
-        if isinstance(scope, injector.ScopeDecorator):
-            scope = scope.scope
-        if scope is None or isinstance(scope, CompositeScope) or isinstance(scope, injector.SingletonScope):
-            self._add_to_registrar(concrete, in_collection_bindings, self.composite_multibind_registrar)
-        else:
-            self._add_to_registrar(concrete, in_collection_bindings, self.multibind_registrar)
+        self._add_to_registrar(concrete, in_collection_bindings, self.composite_multibind_registrar)
 
-    def _add_to_registrar(self, concrete, in_collection_bindings, registrar):
+    @staticmethod
+    def _add_to_registrar(concrete, in_collection_bindings, registrar):
         if concrete in registrar.keys():
             for i in in_collection_bindings:
                 if i not in registrar[concrete]:
+                    LoggerFacade.info(f"Adding {i} to {concrete} as Multibindable Registration")
                     registrar[concrete].append(i)
         else:
             registrar[concrete] = in_collection_bindings
 
     def collapse_register_multibind(self):
+        from python_di.env.base_env_properties import DEFAULT_PROFILE
         injector_created = self._retrieve_injector_inner()
-        self._collapse_multibind_registrar(injector_created, self.composite_multibind_registrar, self.composite_scope)
-        self._collapse_multibind_registrar(injector_created, self.multibind_registrar, self.profile_scope)
-        self.multibind_registrar.clear()
-        self.composite_multibind_registrar.clear()
+        if len(self.composite_multibind_registrar) != 0:
+            for concrete, in_collection_bindings in self.composite_multibind_registrar.items():
+                scope = self.composite_scope if self.profile_scope.profile.profile_name == DEFAULT_PROFILE else self.profile_scope
+                provider = self._get_provider(concrete, scope)
+                if provider is not None:
+                    finished = self._retrieve_finished(in_collection_bindings, injector_created, provider)
+                    assert isinstance(provider, injector.MultiBindProvider)
+                    injector_created.multibind(
+                        concrete,
+                        lambda: self._retrieve_val([i for i in in_collection_bindings if i not in finished], scope,
+                                                   concrete),
+                        scope=self.create_get_scope(scope))
+                else:
+                    if provider is None and len(in_collection_bindings) != 0:
+                        LoggerFacade.info(f"Creating provider {provider} for {in_collection_bindings}")
+                        injector_created.binder.multibind(concrete,
+                                                          self._retrieve_val_curry(in_collection_bindings, scope,
+                                                                                   concrete),
+                                                          scope=self.create_get_scope(scope))
+            self.composite_multibind_registrar.clear()
 
-    def _flatten_providers(self, binding):
-        if isinstance(binding, injector.Provider):
-            yield from self._flatten_providers_inner(binding)
-        else:
-            for p in binding:
-                yield from self._flatten_providers(p)
+    def _retrieve_val_curry(self, bindings, scope, concrete):
+        return lambda: self._retrieve_val(bindings, scope, concrete)
 
-    def _flatten_providers_inner(self, p):
-        if isinstance(p, injector.MultiBindProvider):
-            for inner in p._providers:
-                yield from self._flatten_providers(inner)
-        else:
-            yield p
+    def _retrieve_val(self, bindings, scope, concrete):
+        if not self.registered_event.is_set():
+            self.collapse_injectors()
+        out_bindings = []
+        for b in bindings:
+            out_bindings.append(self.retrieve_injector().get(b, scope=self.create_get_scope(scope)))
 
-    def _collapse_multibind_registrar(self, injector_created, multibind_registrar, scope):
-        for concrete, in_collection_bindings in multibind_registrar.items():
-            provider = self._get_provider(concrete, scope)
-            if provider is not None:
-                finished = self._retrieve_finished(in_collection_bindings, injector_created, provider)
-                assert isinstance(provider, injector.MultiBindProvider)
-                for i in in_collection_bindings:
-                    if i not in finished:
-                        if i in injector_created.binder._bindings.keys():
-                            next_binding = injector_created.binder.get_binding(i)
-                            next_multibind = injector.InstanceProvider(next_binding[0].provider)
-                        else:
-                            next_multibind = injector.InstanceProvider(injector.ClassProvider(i))
-                        LoggerFacade.info(f"Appending {next_multibind} for {provider}")
-                        provider.append(next_multibind)
-            else:
-                if provider is None and len(in_collection_bindings) != 0:
-                    LoggerFacade.info(f"Creating provider {provider} for {in_collection_bindings}")
-                    injector_created.binder.multibind(concrete, in_collection_bindings, scope=scope)
+        return out_bindings
+
+    def create_get_scope(self, scope_item):
+        if isinstance(scope_item, ProfileScope):
+            return profile_scope
+        elif isinstance(scope_item, CompositeScope):
+            return composite_scope
+        elif isinstance(scope_item, injector.SingletonScope):
+            return injector.singleton
+        return injector.singleton
 
     def _retrieve_finished(self, in_collection_bindings, injector_created, provider):
         finished = []
-        for flattened_provider in self._flatten_providers(provider):
+        for flattened_provider in flatten_providers(provider):
             for t in in_collection_bindings:
-                self._mark_finished(finished, flattened_provider, injector_created, t)
+                self._mark_potential_provider_already_existing(finished, flattened_provider, injector_created, t)
         return finished
 
-    def _mark_finished(self, finished, flattened_provider, injector_created, t):
+    @staticmethod
+    def _mark_potential_provider_already_existing(finished, flattened_provider, injector_created, t):
         if isinstance(flattened_provider,
-                      injector.ClassProvider) and t not in finished and t != flattened_provider._cls:
+                      injector.ClassProvider) and t not in finished and t == flattened_provider._cls:
             finished.append(t)
         elif isinstance(flattened_provider, injector.InstanceProvider):
             found_created = flattened_provider.get(injector_created)
-            if t not in finished and type(found_created) != t:
+            if t not in finished and type(found_created) == t:
                 finished.append(t)
         elif isinstance(flattened_provider, injector.CallableProvider):
             found_created = flattened_provider.get(injector_created)
-            if t not in finished and type(found_created) != t:
+            if t not in finished and type(found_created) == t:
                 finished.append(t)
         elif isinstance(flattened_provider, injector.MultiBindProvider):
             LoggerFacade.info(f"{t} was not finished for {flattened_provider}.")
 
-    def _get_provider(self, concrete, scope) -> injector.Provider:
+    @staticmethod
+    def _get_provider(concrete, scope) -> injector.Provider:
         if hasattr(scope, '_context') and concrete in scope._context.keys():
             return scope._context[concrete]
         else:

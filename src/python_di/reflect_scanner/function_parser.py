@@ -4,7 +4,8 @@ import typing
 import networkx as nx
 
 from python_util.logger.logger import LoggerFacade
-from python_di.reflect_scanner.module_graph_models import FileNode, NodeType, ArgFileNode, IntrospectedPathNode
+from python_di.reflect_scanner.module_graph_models import FileNode, NodeType, ArgFileNode, IntrospectedPathNode, \
+    DecoratorFileNode
 from python_di.reflect_scanner.file_parser import ASTNodeParser
 import injector
 
@@ -97,6 +98,12 @@ class FunctionDefParser(ASTNodeParser):
         self.fn_args_parser.parse_args(fn_node, graph, node)
         self.statement_parser.parse_stmts(fn_node, graph, node)
 
+        for decorator in node.decorator_list:
+            if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name):
+                decorator_node = DecoratorFileNode(fn_node.id_value, decorator.func.id,
+                                                   fn_node.node_type)
+                graph.add_node(decorator_node)
+                graph.add_edge(fn_node, decorator_node)
 
     def matches(self, node) -> bool:
         return isinstance(node, ast.FunctionDef)

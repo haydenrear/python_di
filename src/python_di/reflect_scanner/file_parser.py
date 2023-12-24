@@ -1,6 +1,7 @@
 import abc
 import ast
 import importlib
+import os.path
 import typing
 
 import injector
@@ -56,15 +57,16 @@ class FileParser:
                 self.visit_node(child_node, source_path, parent)
 
     def parse(self, source_file_path) -> nx.DiGraph:
-        with open(source_file_path, 'r') as source:
-            lines = source.read()
-            lines = ''.join(lines)
-            tree = ast.parse(lines)
-            mod_node = FileNode(NodeType.MODULE, source_file_path)
-            self.graph.add_node(mod_node)
+        if os.path.isfile(source_file_path):
+            with open(source_file_path, 'r') as source:
+                lines = source.read()
+                lines = ''.join(lines)
+                tree = ast.parse(lines)
+                mod_node = FileNode(NodeType.MODULE, source_file_path)
+                self.graph.add_node(mod_node)
 
-            for node in ast.iter_child_nodes(tree):
-                self.visit_node(node, source_file_path, mod_node)
+                for node in ast.iter_child_nodes(tree):
+                    self.visit_node(node, source_file_path, mod_node)
 
         return self.graph
 

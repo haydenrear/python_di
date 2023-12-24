@@ -1,3 +1,4 @@
+import abc
 import dataclasses
 import enum
 import typing
@@ -23,7 +24,6 @@ class NodeType(Enum):
     STATEMENT = auto()
     IMPORT = auto()
     IMPORT_FROM = auto()
-    IMPORT_FILE = auto()
     IMPORTED_DEPENDENCY = auto()
     SAME_SRC_DEPENDENCY = auto()
     CLASS = auto()
@@ -38,15 +38,19 @@ class NodeType(Enum):
     DECORATOR = enum.auto()
 
 
-class Node:
-    pass
+class Node(abc.ABC):
+    @property
+    @abc.abstractmethod
+    def node_type(self) -> NodeType:
+        pass
 
 
-class GraphType:
+class GraphType(enum.Enum):
     File = enum.auto()
     Program = enum.auto()
 
 
+@dataclasses.dataclass(eq=True)
 class ProgramNode(Node):
     def __init__(self,
                  node_type: NodeType,
@@ -56,10 +60,13 @@ class ProgramNode(Node):
         self.line_no = line_no
         self.id_value = id_value
         self.source_file = source_file
-        self.node_type = node_type
+        self._node_type = node_type
+
+    def node_type(self) -> NodeType:
+        return self._node_type
 
     def __hash__(self):
-        return hash((self.node_type, self.id_value, self.source_file))
+        return hash((self._node_type, self.id_value, self.source_file))
 
 
 class TypeConnectionProgramNode(ProgramNode):
@@ -69,9 +76,14 @@ class TypeConnectionProgramNode(ProgramNode):
 
 
 class FileNode(Node):
+
     def __init__(self, node_type: NodeType, id_value: str):
         self.id_value = id_value
-        self.node_type = node_type
+        self._node_type = node_type
+
+    @property
+    def node_type(self) -> NodeType:
+        return self._node_type
 
     def __hash__(self):
         return hash((self.node_type, self.id_value))
@@ -85,11 +97,26 @@ class FileNode(Node):
         return f'Node type: {self.node_type}\nId value: {self.id_value}'
 
 
+@dataclasses.dataclass(eq=True)
 class ClassFunctionProgramNode(ProgramNode):
     def __init__(self, class_id: str, source_file: str,
                  id_value: str = '__init__', line_no: int = 0):
         super().__init__(NodeType.FUNCTION, source_file, id_value)
         self.class_id = class_id
+
+    def __hash__(self):
+        return hash((self.node_type, self.id_value, self.source_file, self.class_id))
+
+
+@dataclasses.dataclass(eq=True)
+class DecoratorProgramNode(ProgramNode):
+    def __init__(self, decorator_id: str, decorated_id: str, source_file: str, decorated_ty: NodeType):
+        super().__init__(NodeType.DECORATOR, source_file, decorator_id)
+        self.decorated_id = decorated_id
+        self.decorated_ty = decorated_ty
+
+    def __hash__(self):
+        return hash((self.node_type, self.id_value, self.source_file, self.decorated_id, self.decorated_ty))
 
 
 class StatementType(SerializableEnum):
@@ -180,6 +207,13 @@ class ClassFunctionFileNode(FileNode):
     def __init__(self, class_id: str, id_value: str = '__init__'):
         super().__init__(NodeType.FUNCTION, id_value)
         self.class_id = class_id
+
+
+class DecoratorFileNode(FileNode):
+    def __init__(self, decorated_id: str, id_value: str, decorated_ty: NodeType):
+        super().__init__(NodeType.DECORATOR, id_value)
+        self.decorated_id = decorated_id
+        self.decorated_ty = decorated_ty
 
 
 class ArgFileNode(FileNode):

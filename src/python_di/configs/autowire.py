@@ -1,32 +1,36 @@
-import abc
 import typing
 from typing import Optional
 
-import injector
+from injector import ScopeDecorator
 
 from python_di.configs.base_config import DiConfiguration
-from python_di.configs.constructable import ConstructableMarker
-from python_di.configs.di_util import add_subs, \
-    has_sub, call_constructable
-from python_di.configs.di_util import get_underlying, get_wrapped_fn, retrieve_factory, DiUtilConstants
+from python_di.configs.constants import LifeCycleHook
+from python_di.configs.di_util import get_underlying, get_wrapped_fn, DiUtilConstants, retrieve_wrapped_fn_args, \
+    retrieve_fn_ty
+from python_di.configs.di_util import has_sub
 from python_di.env.profile import Profile
-from python_di.inject.inject_context import inject_context
-from python_util.delegate.delegates import PythonDelegate
+from python_di.inject.context_factory.context_factory_provider.context_factories_provider import InjectableContextFactoryProvider
+from python_di.inject.context_factory.context_factory_executor.metadata_factory import LifeCycleMetadataFactory
+from python_di.inject.context_factory.context_factory import PostConstructFactory, AutowireFactory, PreConstructFactory
+from python_di.inject.context_factory.context_factory_executor.register_factory import retrieve_factory
 from python_util.logger.logger import LoggerFacade
 
 
-def injectable(profile: Optional[str] = None,
-               non_typed_ids: dict[str, typing.Callable[[], typing.Type]] = None):
+def autowire(profile: Optional[str] = None,
+             priority: Optional[int] = None,
+             non_typed_ids: dict[str, typing.Callable[[], typing.Type]] = None,
+             scope: Optional[ScopeDecorator] = None):
     if non_typed_ids is not None:
         raise NotImplementedError("Have not implemented non-typed IDs.")
 
     def wrapped_injectable(fn):
         fn, wrapped = get_wrapped_fn(fn)
+        fn_ty = retrieve_fn_ty(fn)
 
         def do_inject(*args, **kwargs):
             return fn(*args, **kwargs)
 
-        fn.is_injectable = True
+        fn.lifecycle = LifeCycleMetadataFactory(LifeCycleHook.autowire, fn_ty, profile, priority, scope)
         fn.injectable_profile = profile
         fn.wrapped = wrapped
         do_inject.wrapped_fn = fn
@@ -42,144 +46,132 @@ def post_construct(fn):
         LoggerFacade.debug(f"Performing post construct for {fn}.")
         return fn(*args, **kwargs)
 
-    fn.post_construct = True
+    fn.lifecycle = LifeCycleMetadataFactory(LifeCycleHook.post_construct, retrieve_fn_ty(fn))
     do_post_construct.wrapped_fn = fn
     return do_post_construct
 
 
-class Autowired:
-    pass
+def pre_construct(fn):
+    fn, wrapped = get_wrapped_fn(fn)
+
+    def do_post_construct(*args, **kwargs):
+        LoggerFacade.debug(f"Performing post construct for {fn}.")
+        return fn(*args, **kwargs)
+
+    fn.lifecycle = LifeCycleMetadataFactory(LifeCycleHook.pre_construct, retrieve_fn_ty(fn))
+    do_post_construct.wrapped_fn = fn
+    return do_post_construct
 
 
-def autowired(profile: Optional[typing.Union[Profile, str]] = None):
+def injectable(profile: Optional[typing.Union[Profile, str]] = None,
+               scope: Optional[ScopeDecorator] = None):
     LoggerFacade.debug(f"Creating autowire constructor.")
 
-    def create_constructor(cls):
-        underlying = get_underlying(cls)
+    def create_constructor(cls_value):
+        underlying = get_underlying(cls_value)
         LoggerFacade.debug(f"Creating autowire constructor for {underlying}.")
 
         if has_sub(underlying, DiConfiguration):
-            raise ValueError(f"{cls} was annotated with both autowire and configuration. Can only be one or the "
+            raise ValueError(f"{cls_value} was annotated with both autowire and configuration. Can only be one or the "
                              f"other.")
 
-        class AutowireProxy(cls):
+        class InjectableProxy(InjectableContextFactoryProvider):
+
             def __init__(self, *args, **kwargs):
                 LoggerFacade.debug(f"Initializing autowire proxy for {underlying}.")
                 super().__init__(*args, **kwargs)
-                call_constructable(cls, underlying, self, AutowireProxy, **kwargs)
-                call_post_construct, to_call = self._iterate_constructables()
-                self._do_construct_autowire(to_call)
-                self._call_post_constructs(call_post_construct)
+                self._pre_construct_factory, self._autowire_factory, self._post_construct_factory \
+                    = self._iterate_constructables()
+                out_factories = []
+                out_factories.extend(self._post_construct_factory)
+                out_factories.extend(self._autowire_factory)
+                out_factories.extend(self._pre_construct_factory)
+                self._context_factory = out_factories
 
-            @staticmethod
-            def _iterate_constructables():
+            @property
+            def context_factory(self) -> list[typing.Union[PostConstructFactory, AutowireFactory, PreConstructFactory]]:
+                return self._context_factory
+
+            @property
+            def post_construct_factory(self) -> list[PostConstructFactory]:
+                return self._post_construct_factory
+
+            @property
+            def autowire_factory(self) -> list[AutowireFactory]:
+                return self._autowire_factory
+
+            @property
+            def pre_construct_factory(self) -> list[PreConstructFactory]:
+                return self._pre_construct_factory
+
+            @classmethod
+            def _iterate_constructables(cls) -> (list[PreConstructFactory],
+                                                 list[AutowireFactory],
+                                                 list[PostConstructFactory]):
                 """
                 Iterate over the class members (of the underlying class) and add all @injectable and @post_construct
                 to lists, and then return them.
                 :return:
                 """
                 call_post_construct = []
-                to_call = []
+                call_pre_construct = []
+                call_autowire = []
                 for k, v in underlying.__dict__.items():
-                    if hasattr(v, DiUtilConstants.wrapped_fn.name):
+                    if (hasattr(v, DiUtilConstants.wrapped_fn.name)
+                            and hasattr(v.wrapped_fn, DiUtilConstants.lifecycle.name)):
                         wrapped_fn = getattr(v, DiUtilConstants.wrapped_fn.name)
                         is_wrapped_fn = hasattr(v, '__call__') and hasattr(v, DiUtilConstants.wrapped_fn.name)
-                        if is_wrapped_fn and hasattr(wrapped_fn, DiUtilConstants.is_injectable.name):
-                            assert hasattr(v, DiUtilConstants.wrapped_fn.name)
-                            to_call.append((k, v))
-                        elif is_wrapped_fn and hasattr(wrapped_fn, DiUtilConstants.post_construct.name):
-                            LoggerFacade.info(f'{cls} has post construct.')
-                            call_post_construct.append(v)
-                return call_post_construct, to_call
-
-            def _call_post_constructs(self, call_post_construct):
-                """
-                Call @post_construct
-                :param call_post_construct: list of functions annotated with @post_constructs, which have no arguments.
-                :return:
-                """
-                for c in call_post_construct:
-                    LoggerFacade.info(f"Calling post construct in {cls} for {AutowireProxy}.")
-                    c(self)
-
-            def _do_construct_autowire(self, to_call):
-                """
-                Autowire-ables are annotated with @injectable - they are in the above list, so retrieve the args
-                and then call them.
-                :param to_call:
-                :return:
-                """
-                for (k, v) in to_call:
-                    do_inject, to_construct = self._retrieve_to_construct(v)
-                    if do_inject:
-                        LoggerFacade.info(f"Calling inject on {v} for {k} and "
-                                          f"{to_construct}.")
-                        v(self, **to_construct)
+                        # if profile/scope not provided at annotation level, inherit profile and scope from the
+                        # class for which the function is defined.
+                        lifecycle = cls._update_lifecycle_metadata(v.wrapped_fn)
+                        if is_wrapped_fn:
+                            cls._register_lifecycle_hooks(cls_value, call_autowire, call_post_construct,
+                                                          call_pre_construct, lifecycle, wrapped_fn)
+                        else:
+                            LoggerFacade.error(f"Wrapped fn {k} for {cls.__name__} failed to be callable.")
+                return call_pre_construct, call_autowire, call_post_construct
 
             @staticmethod
-            def _retrieve_to_construct(v):
-                v = v.wrapped_fn
-                if hasattr(v, DiUtilConstants.injectable_profile.name) and v.injectable_profile is not None:
-                    LoggerFacade.debug(f"Creating factory with injectable profile {v.injectable_profile}.")
-                    do_inject, to_construct = retrieve_factory(v, v.injectable_profile)
+            def _update_lifecycle_metadata(v):
+                lifecycle: LifeCycleMetadataFactory = v.lifecycle
+                if lifecycle.injectable_profile is None and profile is not None:
+                    lifecycle.injectable_profile = profile
+                if lifecycle.scope_decorator is None and scope is not None:
+                    lifecycle.scope_decorator = scope
+                return lifecycle
+
+            @classmethod
+            def _register_lifecycle_hooks(cls, cls_value, call_autowire, call_post_construct, call_pre_construct,
+                                          lifecycle, wrapped_fn):
+                if lifecycle.life_cycle_hook == LifeCycleHook.autowire:
+                    cls.create_add_i_factory(cls_value, call_autowire, lifecycle, wrapped_fn,
+                                             AutowireFactory)
+                elif lifecycle.life_cycle_hook == LifeCycleHook.pre_construct:
+                    cls.create_add_i_factory(cls_value, call_pre_construct, lifecycle, wrapped_fn,
+                                             PreConstructFactory)
+                elif lifecycle.life_cycle_hook == LifeCycleHook.post_construct:
+                    cls.create_add_i_factory(cls_value, call_post_construct, lifecycle, wrapped_fn,
+                                             PostConstructFactory)
                 else:
-                    do_inject, to_construct = retrieve_factory(v, profile)
-                return do_inject, to_construct
+                    LoggerFacade.error(
+                        f"Received unknown lifecycle hook: {lifecycle.life_cycle_hook.name}.")
 
-            def __setattr__(self, key, value):
-                try:
-                    super().__setattr__(key, value)
-                except:
-                    self.__dict__[key] = value
+            @classmethod
+            def create_add_i_factory(cls, cls_value, call_pre_construct, lifecycle, wrapped_fn, factory_ty):
+                fn_arg_tys = retrieve_wrapped_fn_args(wrapped_fn)
+                pre_construct_factory = factory_ty(cls_value, underlying, wrapped_fn, fn_arg_tys, lifecycle)
+                pre_construct_factory.args = lambda: cls._retrieve_args(pre_construct_factory, lifecycle)
+                call_pre_construct.append(pre_construct_factory)
 
-            def __getattr__(self, item):
-                found = self._try_get_attr_super(item)
-                if found is not None:
-                    return found
-                else:
-                    found = self._search_get_attr_super(item)
-                    if found is not None:
-                        return found
-                    else:
-                        raise AttributeError(f"Did not contain {item}!")
+            @classmethod
+            def _retrieve_args(cls, _pre_construct_factory, _lifecycle):
+                did_inject, values = retrieve_factory(_pre_construct_factory, _lifecycle)
+                return values
 
-            def _try_get_attr_super(self, item):
-                try:
-                    return super().__getattr__(item)
-                except:
-                    pass
+        cls_value.proxied = underlying
+        cls_value.context_factory_provider = InjectableProxy
+        cls_value.injectable_context_factory = True
 
-            def _search_get_attr_super(self, item):
-                if hasattr(self.proxied, item):
-                    return getattr(self.proxied, item)
-                else:
-                    super_class = super()
-                    if hasattr(super_class, item):
-                        return super_class.__getattr__(item)
-                    elif hasattr(cls, item):
-                        return getattr(cls, item)
-                    else:
-                        for b in type(self).__mro__:
-                            if hasattr(b, item):
-                                return getattr(b, item)
-
-        AutowireProxy.proxied = underlying
-        add_subs(underlying, [{ConstructableMarker: AutowireProxy}])
-        return AutowireProxy
+        return cls_value
 
     return create_constructor
-
-
-@inject_context()
-def config_option(bind_to: list[type] = None, profile: Optional[str] = None):
-    inject = config_option.inject_context()
-
-    def class_decorator_inner(cls):
-        binding = bind_to if bind_to is not None else [cls]
-        if cls not in binding:
-            binding.append(cls)
-        inject.register_component_value(cls, getattr(cls, f"build_{profile}_config")(),
-                                        injector.singleton, profile)
-        return cls
-
-    return class_decorator_inner

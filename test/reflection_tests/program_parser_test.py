@@ -2,15 +2,15 @@ import importlib
 import logging
 import unittest
 
-import injector
 import networkx as nx
 
-from python_di.configs.di_configuration import enable_configuration_properties
-from python_di.inject.injector_provider import InjectionContext
+from python_di.configs.enable_configuration_properties import enable_configuration_properties
+from python_di.inject.context_builder.injection_context import InjectionContext
 from python_util.logger.logger import LoggerFacade
 from python_util.logger.log_level import LogLevel
 from python_di.reflect_scanner.module_graph_models import NodeType, ProgramNode
-from python_di.reflect_scanner.program_parser import ProgramParser, ScannerProperties
+from python_di.reflect_scanner.program_parser import ProgramParser
+from python_di.reflect_scanner.scanner_properties import ScannerProperties
 
 
 @enable_configuration_properties(config_props=[ScannerProperties])

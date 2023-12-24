@@ -1,2 +1,0 @@
-class ConstructableMarker:
-    pass

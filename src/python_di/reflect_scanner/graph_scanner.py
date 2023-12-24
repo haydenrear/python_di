@@ -4,7 +4,7 @@ import typing
 import networkx as nx
 
 from python_util.logger.logger import LoggerFacade
-from python_di.reflect_scanner.module_graph_models import Node, GraphType, FileNode, NodeType
+from python_di.reflect_scanner.module_graph_models import Node, GraphType, FileNode, NodeType, ProgramNode
 
 
 class GraphScannerArgs(abc.ABC):
@@ -15,12 +15,23 @@ GraphScannerArgsT = typing.TypeVar("GraphScannerArgsT", bound=GraphScannerArgs, 
 NodeTypeT = typing.TypeVar("NodeTypeT", bound=Node, covariant=True)
 
 
-class GraphScannerResult(typing.Generic[NodeTypeT]):
-    def __init__(self, nodes: typing.Collection[NodeTypeT]):
+class GraphScannerResult:
+    def __init__(self, nodes: list[Node], source_nodes: list[Node] = None):
+        self.source_nodes = source_nodes
         self.nodes = nodes
 
 
-class GraphScanner(abc.ABC, typing.Generic[GraphScannerArgsT, NodeTypeT]):
+class ModulesOfGraphScannerResult:
+    def __init__(self, nodes: typing.Collection[typing.Tuple[Node, Node]]):
+        self.nodes = nodes
+
+
+class ImportOfGraphScannerResult:
+    def __init__(self, nodes: typing.Collection[typing.Tuple[Node, Node]]):
+        self.nodes = nodes
+
+
+class GraphScanner(abc.ABC, typing.Generic[GraphScannerArgsT]):
     """
     # TODO: conditioning on, for instance, text from a ticket - also [[AI Compilation]] -really just monitoring (bpf) and
        adding interface and plugin for compiling (probably C++ or Rust).
@@ -87,7 +98,7 @@ class GraphScanner(abc.ABC, typing.Generic[GraphScannerArgsT, NodeTypeT]):
     """
 
     @abc.abstractmethod
-    def do_scan(self, graph_scanner_args: GraphScannerArgsT) -> GraphScannerResult[NodeTypeT]:
+    def do_scan(self, graph_scanner_args: GraphScannerArgsT) -> GraphScannerResult:
         pass
 
 
@@ -105,59 +116,162 @@ class DecoratorOfGraphScannerArgs(GraphScannerArgs):
         self.graph = graph
 
 
-def retrieve_classes(file_parser: nx.DiGraph) -> list[FileNode]:
-    returned_classes = list(filter(lambda node: node.node_type == NodeType.CLASS, file_parser.nodes))
-    return returned_classes
+class FunctionsOfGraphScannerArgs(GraphScannerArgs):
+    def __init__(self, graph: nx.DiGraph, graph_type: GraphType):
+        self.graph_type = graph_type
+        self.graph = graph
 
 
-def has_base_class(file_parser: nx.DiGraph, file_node: FileNode, base_class: typing.Type) -> bool:
+class ModulesOfNodesArgs(GraphScannerArgs):
+    def __init__(self, graph: nx.DiGraph, graph_type: GraphType,
+                 nodes: list[Node]):
+        self.nodes = nodes
+        self.graph_type = graph_type
+        self.graph = graph
+
+
+class ImportFromNodesArgs(GraphScannerArgs):
+    def __init__(self, graph: nx.DiGraph, graph_type: GraphType,
+                 nodes: list[Node]):
+        self.nodes = nodes
+        self.graph_type = graph_type
+        self.graph = graph
+
+
+def matches(node: Node, graph_type: GraphType):
+    if isinstance(node, FileNode):
+        return graph_type == GraphType.File
+    elif isinstance(node, ProgramNode):
+        return graph_type == GraphType.Program
+
+
+def _is_class_node(node: Node):
+    is_class_type = node._node_type == NodeType.CLASS
+    return is_class_type
+
+
+def _is_import_node(node: Node):
+    is_class_type = node._node_type == NodeType.IMPORT or node._node_type == NodeType.IMPORT_FROM
+    return is_class_type
+
+
+def retrieve_classes(file_parser: nx.DiGraph, graph_type: GraphType = GraphType.File) -> list[Node]:
+    return_classes = []
+    for node in file_parser.nodes:
+        is_class_node = _is_class_node(node)
+        matches_node_type = matches(node, graph_type)
+        if is_class_node and matches_node_type:
+            return_classes.append(node)
+    return return_classes
+
+
+def retrieve_functions(file_parser: nx.DiGraph, graph_type: GraphType = GraphType.File) -> list[Node]:
+    returned_functions = list(filter(lambda node: node._node_type == NodeType.FUNCTION and matches(node, graph_type),
+                                     file_parser.nodes))
+    return returned_functions
+
+
+def has_base_class(file_parser: nx.DiGraph, file_node: Node, base_class: typing.Type,
+                   graph_type: GraphType = GraphType.File) -> bool:
     for from_, to_ in file_parser.edges(file_node):
-        if isinstance(to_, FileNode):
-            if to_.node_type == NodeType.BASE_CLASS and to_.id_value == base_class.__name__:
-                if has_path_name(file_parser, to_, base_class.__module__):
-                    LoggerFacade.info(f"Found injector module during component scan: \n{file_node}\n.")
-                    return True
-
-
-def has_decorator_id(file_parser: nx.DiGraph, file_node: FileNode, decorator_id: str) -> bool:
-    for from_, to_ in file_parser.edges(file_node):
-        if isinstance(to_, FileNode):
-            if to_.node_type == NodeType.DECORATOR and to_.id_value == decorator_id:
+        if to_._node_type == NodeType.BASE_CLASS and to_.id_value == base_class.__name__ and matches(to_, graph_type):
+            if has_path_name(file_parser, to_, base_class.__module__):
+                LoggerFacade.info(f"Found injector module during component scan: \n{file_node}\n.")
                 return True
 
 
-def has_path_name(file_parser: nx.DiGraph, file_node: FileNode, path_name: str) -> bool:
+def retrieve_module(file_parser: nx.DiGraph, node: Node, graph_type: GraphType = GraphType.File):
+    for from_, to_ in file_parser.out_edges(node):
+        is_module = to_._node_type == NodeType.MODULE
+        if is_module and matches(to_, graph_type):
+            return to_
+
+
+def retrieve_import(file_parser: nx.DiGraph, node: Node, graph_type: GraphType = GraphType.File):
+    for from_, to_ in file_parser.out_edges(node):
+        is_module = to_._node_type == NodeType.IMPORTED_DEPENDENCY or from_._node_type == NodeType.IMPORTED_DEPENDENCY
+        if is_module and matches(to_, graph_type):
+            return to_
+
+
+def is_function(file_parser: nx.DiGraph, file_node: Node, graph_type: GraphType = GraphType.File) -> bool:
     for from_, to_ in file_parser.edges(file_node):
-        if isinstance(to_, FileNode):
-            if to_.node_type == NodeType.PATH and to_.id_value == path_name:
-                return True
+        if to_._node_type == NodeType.FUNCTION and matches(to_, graph_type):
+            return True
 
 
-def retrieve_subclasses(file_parser: nx.DiGraph, superclass_name: typing.Type) -> list[FileNode]:
+def has_decorator_id(file_parser: nx.DiGraph, file_node: Node, decorator_id: str,
+                     graph_type: GraphType = GraphType.File) -> bool:
+    for from_, to_ in file_parser.edges(file_node):
+        if to_._node_type == NodeType.DECORATOR and to_.id_value == decorator_id and matches(to_, graph_type):
+            return True
+
+
+def has_path_name(file_parser: nx.DiGraph, file_node: Node, path_name: str,
+                  graph_type: GraphType = GraphType.File) -> bool:
+    for from_, to_ in file_parser.edges(file_node):
+        if to_._node_type == NodeType.PATH and to_.id_value == path_name and matches(to_, graph_type):
+            return True
+
+
+def retrieve_subclasses(file_parser: nx.DiGraph, superclass_name: typing.Type,
+                        graph_type: GraphType = GraphType.File) -> list[Node]:
     return [
-        c for c in retrieve_classes(file_parser)
-        if has_base_class(file_parser, c, superclass_name)
+        c for c in retrieve_classes(file_parser, graph_type)
+        if has_base_class(file_parser, c, superclass_name, graph_type) and matches(c, graph_type)
     ]
 
 
-def retrieve_classes_decorated_by(file_parser: nx.DiGraph, decorator_id: str) -> list[FileNode]:
+def retrieve_classes_decorated_by(file_parser: nx.DiGraph, decorator_id: str,
+                                  graph_type: GraphType = GraphType.File) -> list[Node]:
     return [
-        c for c in retrieve_classes(file_parser)
-        if has_decorator_id(file_parser, c, decorator_id)
+        c for c in retrieve_classes(file_parser, graph_type)
+        if has_decorator_id(file_parser, c, decorator_id, graph_type) and matches(c, graph_type)
     ]
 
 
-class SubclassesOfGraphScanner(GraphScanner[SubclassesOfGraphScannerArgs, NodeTypeT], typing.Generic[NodeTypeT]):
-    def do_scan(self, graph_scanner_args: SubclassesOfGraphScannerArgs) -> GraphScannerResult[NodeTypeT]:
-        if graph_scanner_args.graph_type == GraphType.Program:
-            raise NotImplementedError("Have not implemented for FileNode")
-        out = retrieve_subclasses(graph_scanner_args.graph, graph_scanner_args.super_class)
+def retrieve_functions_decorated_by(file_parser: nx.DiGraph, decorator_id: str,
+                                    graph_type: GraphType = GraphType.File) -> list[Node]:
+    return [
+        c for c in retrieve_functions(file_parser, graph_type)
+        if has_decorator_id(file_parser, c, decorator_id, graph_type) and matches(c, graph_type)
+    ]
+
+
+class SubclassesOfGraphScanner(GraphScanner[SubclassesOfGraphScannerArgs]):
+    def do_scan(self, graph_scanner_args: SubclassesOfGraphScannerArgs) -> GraphScannerResult:
+        out = retrieve_subclasses(graph_scanner_args.graph, graph_scanner_args.super_class,
+                                  graph_scanner_args.graph_type)
         return GraphScannerResult(out)
 
 
-class DecoratorOfGraphScanner(GraphScanner[DecoratorOfGraphScannerArgs, NodeTypeT], typing.Generic[NodeTypeT]):
-    def do_scan(self, graph_scanner_args: DecoratorOfGraphScannerArgs) -> GraphScannerResult[NodeTypeT]:
-        if graph_scanner_args.graph_type == GraphType.Program:
-            raise NotImplementedError("Have not implemented for FileNode")
-        out = retrieve_classes_decorated_by(graph_scanner_args.graph, graph_scanner_args.decorator_id)
+class DecoratorOfGraphScanner(GraphScanner[DecoratorOfGraphScannerArgs]):
+    def do_scan(self, graph_scanner_args: DecoratorOfGraphScannerArgs) -> GraphScannerResult:
+        out = retrieve_classes_decorated_by(graph_scanner_args.graph, graph_scanner_args.decorator_id,
+                                            graph_scanner_args.graph_type)
+        fns = retrieve_functions_decorated_by(graph_scanner_args.graph, graph_scanner_args.decorator_id,
+                                              graph_scanner_args.graph_type)
+        out.extend(fns)
         return GraphScannerResult(out)
+
+
+class FunctionsOfGraphScanner(GraphScanner[SubclassesOfGraphScannerArgs]):
+    def do_scan(self, graph_scanner_args: FunctionsOfGraphScannerArgs) -> GraphScannerResult:
+        out = retrieve_functions(graph_scanner_args.graph, graph_scanner_args.graph_type)
+        return GraphScannerResult(out)
+
+
+class ModulesOfGraphScanner(GraphScanner[SubclassesOfGraphScannerArgs]):
+    def do_scan(self, graph_scanner_args: ModulesOfNodesArgs) -> ModulesOfGraphScannerResult:
+        return ModulesOfGraphScannerResult([
+            (retrieve_module(graph_scanner_args.graph, n, graph_scanner_args.graph_type), n)
+            for n in graph_scanner_args.nodes
+        ])
+
+
+class ImportGraphScanner(GraphScanner[ImportFromNodesArgs]):
+    def do_scan(self, graph_scanner_args: ImportFromNodesArgs) -> ImportOfGraphScannerResult:
+        return ImportOfGraphScannerResult([
+            (retrieve_import(graph_scanner_args.graph, n, graph_scanner_args.graph_type), n)
+            for n in graph_scanner_args.nodes
+        ])

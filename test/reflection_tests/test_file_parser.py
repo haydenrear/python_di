@@ -11,7 +11,7 @@ from python_di.reflect_scanner.file_parser import FileParser
 from python_di.reflect_scanner.function_parser import FunctionDefParser
 from python_di.reflect_scanner.import_parser import ImportParser
 from python_di.reflect_scanner.module_graph_models import Import, ImportFrom, FileNode, NodeType
-from python_di.reflect_scanner.program_parser import ProgramParser, SourceFileProvider
+from python_di.reflect_scanner.program_parser import ProgramParser, PropertyBasedSourceFileProvider
 from python_di.reflect_scanner.program_parser_connector import get_import_containing_module
 
 

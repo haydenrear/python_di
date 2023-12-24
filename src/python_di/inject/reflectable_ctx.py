@@ -4,33 +4,29 @@ import typing
 import injector
 from injector import Binder
 
-from python_di.inject.inject_context_di import inject_context_di
-from python_di.inject.injector_provider import InjectionContext, T
+from python_di.inject.binder_utils import bind_multi_bind
+from python_di.inject.context_builder.inject_ctx import inject_context_di
+from python_di.inject.context_builder.injection_context import InjectionContext
+from python_di.inject.injector_provider import InjectionContextInjector
 from python_di.reflect_scanner.class_parser import ClassFnParser, ClassDefParser, ClassDefInnerParser
 from python_di.reflect_scanner.file_parser import ASTNodeParser, FileParser
 from python_di.reflect_scanner.function_parser import FunctionDefParser, FnStatementParser, FnArgsParser
-from python_di.reflect_scanner.graph_scanner import DecoratorOfGraphScanner, SubclassesOfGraphScanner
+from python_di.reflect_scanner.graph_scanner import DecoratorOfGraphScanner, SubclassesOfGraphScanner, \
+    FunctionsOfGraphScanner, ModulesOfGraphScanner, ImportGraphScanner
 from python_di.reflect_scanner.import_parser import ImportParser
-from python_di.reflect_scanner.program_parser import ProgramParser, ModuleNameInclusionCriteria, SourceFileProvider, \
-    InclusionCriteria
+from python_di.reflect_scanner.program_parser import ProgramParser, ModuleNameInclusionCriteria, \
+    PropertyBasedSourceFileProvider, \
+    InclusionCriteria, SourceFileProvider
 from python_di.reflect_scanner.program_parser_connector import ClassParserConnector, FunctionArgsParserConnector, \
-    ClassFunctionParserConnector, FunctionParserConnector, ProgramParserConnector
+    ClassFunctionParserConnector, FunctionParserConnector, ProgramParserConnector, DecoratorParserConnector
+from python_di.reflect_scanner.scanner_properties import ScannerProperties
 from python_di.reflect_scanner.statements_parser import StatementParser, AggregateStatementParser
 from python_di.reflect_scanner.type_introspector import TypeIntrospector, AttributeAstIntrospecter, TupleIntrospecter, \
     NameIntrospecter, DictClassDefParser, ListClassDefParser, OptionalClassDefParser, GenericClassDefParser, \
     SubscriptIntrospecter, ClassDefIntrospectParser, AggregateTypeIntrospecter, ListAstIntrospecter, \
     ConstantIntrospecter
 
-
-@inject_context_di()
-def bind_multi_bind(multi_bind: typing.List[typing.Type[T]], binder, multi_bind_name,
-                    ctx: typing.Optional[InjectionContext] = None):
-    for to_bind in multi_bind:
-        if to_bind not in binder._bindings.keys():
-            binder.bind(to_bind, to_bind, scope=injector.singleton)
-    binder.multibind(multi_bind_name, lambda: [
-        ctx.get_interface(to_bind, scope=injector.singleton) for to_bind in multi_bind
-    ], scope=injector.singleton)
+T = typing.TypeVar("T")
 
 
 class ReflectableCtx(injector.Module):
@@ -53,18 +49,31 @@ class ReflectableCtx(injector.Module):
         self.bind_ast_node_parser(binder)
         self.bind_program_parser(binder)
 
-    def bind_config_props(self, binder, to_bind):
-        for t in to_bind:
-            prop = InjectionContext.get_interface(t)
-            binder.bind(t, prop, scope=injector.singleton)
-
     def bind_program_parser(self, binder: Binder):
         bind_multi_bind([ModuleNameInclusionCriteria], binder, typing.List[InclusionCriteria])
-        binder.bind(SourceFileProvider, SourceFileProvider, scope=injector.singleton)
+        binder.bind(SourceFileProvider, PropertyBasedSourceFileProvider, scope=injector.singleton)
         binder.bind(ProgramParser, ProgramParser, scope=injector.singleton)
         binder.bind(FileParser, FileParser, scope=injector.noscope)
-        binder.bind(DecoratorOfGraphScanner, DecoratorOfGraphScanner, scope=injector.singleton)
-        binder.bind(SubclassesOfGraphScanner, SubclassesOfGraphScanner, scope=injector.singleton)
+
+        for graph_scanner in self._graph_scanner_tys():
+            binder.bind(graph_scanner, graph_scanner, scope=injector.singleton)
+
+        self.retrieve_bind_props(ScannerProperties)
+
+    @staticmethod
+    def _graph_scanner_tys():
+        return [
+            DecoratorOfGraphScanner,
+            SubclassesOfGraphScanner,
+            FunctionsOfGraphScanner,
+            ModulesOfGraphScanner,
+            ImportGraphScanner
+        ]
+
+    @inject_context_di()
+    def retrieve_bind_props(self, to_register: typing.Type[T], ctx: typing.Optional[InjectionContextInjector]):
+        if not ctx.contains_binding(to_register):
+            ctx.register_config_properties(to_register, to_register.fallback)
 
     def bind_ast_node_parser(self, binder: Binder):
         binder.bind(FnArgsParser, FnArgsParser, scope=injector.singleton)
@@ -81,7 +90,8 @@ class ReflectableCtx(injector.Module):
             ClassParserConnector,
             FunctionArgsParserConnector,
             ClassFunctionParserConnector,
-            FunctionParserConnector
+            FunctionParserConnector,
+            DecoratorParserConnector
         ], binder, typing.List[ProgramParserConnector])
 
     def bind_introspecter(self, binder):
@@ -107,14 +117,9 @@ class ReflectableCtx(injector.Module):
         binder.bind(TupleIntrospecter, TupleIntrospecter, scope=injector.singleton)
         binder.bind(SubscriptIntrospecter, SubscriptIntrospecter, scope=injector.singleton)
         parser_types = {}
-        for parser_type in ReflectableCtx.parser_types:
-            mod = importlib.import_module('python_di.reflect_scanner.statements_parser')
-            p_type = mod.__dict__[parser_type]
-            parser_types[parser_type] = p_type
-        for parser_type, ty in parser_types.items():
-            binder.bind(ty, ty, scope=injector.singleton)
-        binder.multibind(typing.List[StatementParser], lambda: [
-            InjectionContext.get_interface(ty) for parser_type, ty
-            in parser_types.items()
-        ], scope=injector.singleton)
+        # for parser_type in ReflectableCtx.parser_types:
+        #     mod = importlib.import_module('python_di.reflect_scanner.statements_parser')
+        #     p_type = mod.__dict__[parser_type]
+        #     parser_types[parser_type] = p_type
+        bind_multi_bind([p for p in parser_types.values()], binder, typing.List[StatementParser])
         binder.bind(AggregateStatementParser, AggregateStatementParser, scope=injector.singleton)

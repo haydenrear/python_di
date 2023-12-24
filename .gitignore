@@ -4,4 +4,4 @@ test_work/
 *.pyc
 .git.bfg-report/*
 
-__pycache__
+__pycache__/**

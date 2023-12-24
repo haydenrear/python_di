@@ -1,7 +1,7 @@
 import ast
 import unittest
 
-from python_di.inject.injector_provider import InjectionContext
+from python_di.inject.context_builder.injection_context import InjectionContext
 from python_di.reflect_scanner.ast_utils import parse_ast_into_file
 from python_di.reflect_scanner.statements_parser import AggregateStatementParser
 

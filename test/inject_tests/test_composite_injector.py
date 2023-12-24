@@ -4,7 +4,7 @@ from unittest import TestCase
 import injector
 from injector import Binder
 
-from python_di.inject.composite_injector import CompositeInjector, CompositeScope
+from python_di.inject.profile_composite_injector.composite_injector import CompositeInjector
 
 
 class TestOne:

@@ -2,11 +2,9 @@ import ast
 import os.path
 import unittest
 
-from python_di.inject.injector_provider import InjectionContext
+from python_di.inject.context_builder.injection_context import InjectionContext
 from python_di.reflect_scanner.ast_utils import parse_ast_into_file
-from python_di.reflect_scanner.module_config_models import ClassDef
-from python_di.reflect_scanner.type_introspector import AggregateTypeIntrospecter, IntrospectedOptional, \
-    IntrospectedList
+from python_di.reflect_scanner.type_introspector import AggregateTypeIntrospecter, IntrospectedList
 
 
 class AggregateTypeIntrospecterTest(unittest.TestCase):

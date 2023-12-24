@@ -1,15 +1,17 @@
+import typing
 from typing import Optional
 
-from python_di.inject.inject_context import inject_context
+from python_di.inject.context_builder.inject_ctx import inject_context_di
+from python_di.inject.injector_provider import InjectionContextInjector
 
 
-@inject_context()
+@inject_context_di()
 def property_source(props: dict[str, object] = None,
                     prefix_name: Optional[str] = None,
                     profile_name: Optional[str] = None,
-                    priority: Optional[int] = None):
-    injector = property_source.inject_context()
-    injector.register_config_property_values(props, profile_name, priority, prefix_name)
+                    priority: Optional[int] = None,
+                    ctx: typing.Optional[InjectionContextInjector] = None):
+    ctx.register_config_property_values(props, profile_name, priority, prefix_name)
 
     def property_source_proxy(cls):
         return cls

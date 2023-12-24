@@ -8,14 +8,18 @@ from python_util.logger.logger import LoggerFacade
 from python_util.ordered.ordering import Ordered
 from python_di.reflect_scanner.file_parser import FileParser
 from python_di.reflect_scanner.module_graph_models import FileNode, Import, ImportFrom, ProgramNode, NodeType, \
-    ClassFunctionFileNode, ArgFileNode, TypeConnectionProgramNode, ClassFunctionProgramNode
+    ClassFunctionFileNode, ArgFileNode, TypeConnectionProgramNode, ClassFunctionProgramNode, DecoratorProgramNode, \
+    DecoratorFileNode
 from python_di.reflect_scanner.type_introspector import IntrospectedDef
 
 
 class ProgramParserConnectorArgs:
-    def __init__(self, file_graphs: dict[str, FileParser],
+    def __init__(self,
+                 file_graphs: dict[str, FileParser],
                  external_file_graphs: dict[str, FileParser],
-                 program_graph: nx.DiGraph):
+                 program_graph: nx.DiGraph,
+                 sources: list[str]):
+        self.sources = sources
         self.program_graph = program_graph
         self.external_file_graphs = external_file_graphs
         self.file_graphs = file_graphs
@@ -35,9 +39,23 @@ class ProgramParserConnector(Ordered, abc.ABC):
                                                         source, within_file,
                                                         connector_args)
 
+    @classmethod
+    def get_module_name(cls, id_value, source):
+        for s in source:
+            if id_value.startswith(s):
+                id_value = id_value.replace(s, "").replace("/", ".")
+                if len(id_value) != 0 and id_value[0] == ".":
+                    id_value = id_value[1:]
+                if id_value.endswith("py"):
+                    id_value = id_value.replace(".py", "")
+                return id_value
+
+        return None
+
+
     def add_node_to_program_graph(self, connector_args, node, source):
         within_file = ProgramNode(node.node_type, source, node.id_value)
-        source_node = ProgramNode(NodeType.MODULE, source, source)
+        source_node = ProgramNode(NodeType.MODULE, source, self.get_module_name(source, connector_args.sources))
         connector_args.program_graph.add_node(within_file)
         connector_args.program_graph.add_edge(within_file, source_node)
         return within_file
@@ -50,6 +68,15 @@ class ProgramParserConnector(Ordered, abc.ABC):
     def add_sub_nodes_to_program_graph(self, node, file_graph,
                                        source, class_program_node,
                                        connector_args: ProgramParserConnectorArgs):
+        """
+        Add the connections within the same file.
+        :param node:
+        :param file_graph:
+        :param source:
+        :param class_program_node:
+        :param connector_args:
+        :return:
+        """
         pass
 
     @staticmethod
@@ -116,6 +143,15 @@ class ClassParserConnector(ProgramParserConnector):
             self.link_sub_node_to_graph(base, base_program, class_program_node,
                                         connector_args, file_graph, source)
 
+    def add_node_to_program_graph(self, connector_args, node, source):
+        within_file = ProgramNode(node.node_type, source, node.id_value)
+        source_node = ProgramNode(NodeType.MODULE, source, self.get_module_name(source, connector_args.sources))
+        connector_args.program_graph.add_node(source_node)
+        connector_args.program_graph.add_node(within_file)
+        connector_args.program_graph.add_edge(within_file, source_node)
+        connector_args.program_graph.add_edge(source_node, within_file)
+        return within_file
+
 
 class FunctionArgsParserConnector(ProgramParserConnector):
     """
@@ -172,10 +208,48 @@ def add_fn_statements(class_function_program_node, connector_args, file_graph, n
     connector_args.program_graph.add_edge(class_function_program_node, fn_statement_program_node)
 
 
+class DecoratorParserConnector(ProgramParserConnector):
+    """
+    Connects the function to the class.
+    """
+
+    def matches_node(self, node):
+        return node.node_type == NodeType.DECORATOR and isinstance(node, DecoratorFileNode)
+
+    def add_sub_nodes_to_program_graph(self, node: DecoratorFileNode, file_graph, source,
+                                       decorated_program_node: DecoratorProgramNode,
+                                       connector_args: ProgramParserConnectorArgs):
+        LoggerFacade.debug(f'Getting in edges for {node.id_value}')
+        in_edges = get_node_cxns_in(file_graph, node)
+        for i in in_edges:
+            LoggerFacade.debug(f'{i.id_value} is in edge')
+        classes = get_classes(in_edges)
+        for class_node in classes:
+            class_program_node = ProgramNode(NodeType.CLASS, source, class_node.id_value)
+            connector_args.program_graph.add_node(class_program_node)
+            connector_args.program_graph.add_edge(class_program_node, decorated_program_node)
+        functions = get_functions(in_edges)
+        for function in functions:
+            class_program_node = ProgramNode(NodeType.FUNCTION, source, function.id_value)
+            connector_args.program_graph.add_node(class_program_node)
+            connector_args.program_graph.add_edge(class_program_node, decorated_program_node)
+
+    def order(self) -> int:
+        return 2
+
+    def add_node_to_program_graph(self, connector_args, node: DecoratorFileNode, source):
+        within_file = DecoratorProgramNode(node.id_value, node.decorated_id, source, node.decorated_ty)
+        source_node = ProgramNode(NodeType.MODULE, source, self.get_module_name(source, connector_args.sources))
+        connector_args.program_graph.add_node(within_file)
+        connector_args.program_graph.add_edge(within_file, source_node)
+        return within_file
+
+
 class ClassFunctionParserConnector(ProgramParserConnector):
     """
     Connects the function to the class.
     """
+
     def matches_node(self, node):
         return node.node_type == NodeType.FUNCTION and isinstance(node, ClassFunctionFileNode)
 
@@ -200,7 +274,7 @@ class ClassFunctionParserConnector(ProgramParserConnector):
 
     def add_node_to_program_graph(self, connector_args, node: ClassFunctionFileNode, source):
         within_file = ClassFunctionProgramNode(node.class_id, source, node.id_value)
-        source_node = ProgramNode(NodeType.MODULE, source, source)
+        source_node = ProgramNode(NodeType.MODULE, source, self.get_module_name(source, connector_args.sources))
         connector_args.program_graph.add_node(within_file)
         connector_args.program_graph.add_edge(within_file, source_node)
         return within_file
@@ -216,7 +290,7 @@ class FunctionParserConnector(ProgramParserConnector):
         add_fn_statements(function_program_node, connector_args, file_graph, node, source)
 
     def order(self) -> int:
-        pass
+        return 0
 
 
 def get_import_containing_module(module_name: str, graph_to_search) -> (Import | ImportFrom, object):
@@ -252,7 +326,7 @@ def get_dict_file_from_module(node: Import | ImportFrom):
 
 def get_module(mod):
     try:
-        LoggerFacade.info(f"Importing {mod}.")
+        LoggerFacade.debug(f"Importing {mod}.")
         imported_module = importlib.import_module(mod)
         return imported_module.__file__, imported_module.__dict__
     except Exception as e:
@@ -274,6 +348,16 @@ def get_classes(nodes: list):
             if node.node_type == NodeType.CLASS]
 
 
+def get_decorators(nodes: list):
+    return [node for node in nodes
+            if node.node_type == NodeType.DECORATOR]
+
+
+def get_functions(nodes: list):
+    return [node for node in nodes
+            if node.node_type == NodeType.FUNCTION]
+
+
 def get_functions_stmts(nodes: list):
     return [node for node in nodes
             if node.node_type == NodeType.STATEMENT]
@@ -288,8 +372,7 @@ def get_import_from_path(path: str, nodes):
                 return node
 
 
-def add_program_nodes_from_import(base, found_import_mod,
-                                  mod_src_file, source, program_graph):
+def add_program_nodes_from_import(base, found_import_mod, mod_src_file, source, program_graph):
     # add the imported dependency to the graph
     import_node = ProgramNode(NodeType.IMPORTED_DEPENDENCY, source, found_import_mod.id_value)
     program_graph.add_node(import_node)

@@ -5,10 +5,9 @@ import typing
 import injector
 import networkx as nx
 
-from python_di.env.base_module_config_props import ConfigurationProperties
+from python_di.reflect_scanner.scanner_properties import ScannerProperties
 from python_util.io_utils.file_dirs import iterate_files_in_directories, get_base_path_of_current_file
 from python_util.logger.logger import LoggerFacade
-from python_di.properties.configuration_properties_decorator import configuration_properties
 from python_di.reflect_scanner.module_graph_models import FileNode, Import, ImportFrom, ProgramNode, NodeType
 from python_di.reflect_scanner.file_parser import ASTNodeParser, FileParser
 from python_di.reflect_scanner.program_parser_connector import ProgramParserConnectorArgs, ProgramParserConnector, \
@@ -36,13 +35,48 @@ class ModuleNameInclusionCriteria(InclusionCriteria):
             return True
 
 
-@configuration_properties(prefix_name='scanner')
-class ScannerProperties(ConfigurationProperties):
-    src_file: str
-    num_up: int
+class SourceFileProvider(abc.ABC):
+    """
+    Once you have these connections within the files, using the FileParser, the program graph is created. The program
+    graph creates unique ID's for the classes and functions using a combination of the id and the source file. The
+
+    Iterates through to provide the files to be parsed.
+    """
+
+    @abc.abstractmethod
+    def file_parser(self) -> typing.Iterator[str]:
+        pass
+
+    @abc.abstractmethod
+    def base_source(self) -> list[str]:
+        """
+        :return: The directory that would import from. When creating the import it uses starts_with to remove this
+        and then replaces slashes with dots to create imports.
+        """
+        pass
 
 
-class SourceFileProvider:
+class ListBasedSourceFileProvider(SourceFileProvider):
+
+    def __init__(self, sources: list[str]):
+        self.source = sources
+        self.walked = set([])
+
+    def base_source(self) -> list[str]:
+        return self.source
+
+    def file_parser(self) -> typing.Iterator[str]:
+        for directory_name in self.source:
+            for subdir, dirs, files in os.walk(directory_name):
+                for file in files:
+                    if '.py' in file and '.pyc' not in file:
+                        next_value = os.path.join(subdir, file)
+                        if next_value not in self.walked:
+                            yield next_value
+                            self.walked.add(next_value)
+
+
+class PropertyBasedSourceFileProvider(SourceFileProvider):
     """
     Once you have these connections within the files, using the FileParser, the program graph is created. The program
     graph creates unique ID's for the classes and functions using a combination of the id and the source file. The
@@ -61,6 +95,10 @@ class SourceFileProvider:
         yield from filter(self.filter_fn.do_include,
                           iterate_files_in_directories(get_base_path_of_current_file(self.scanner_properties.src_file,
                                                                                      self.scanner_properties.num_up)))
+
+    def base_source(self) -> list[str]:
+        return [get_base_path_of_current_file(self.scanner_properties.src_file,
+                                              self.scanner_properties.num_up)]
 
 
 class ProgramParser:
@@ -83,14 +121,22 @@ class ProgramParser:
                                                    key=lambda x: x.order() if x.order() is not None else 0)):
             program_graph_connector.program_graph = self.program_graph
 
+    def set_source_file_provider(self, src_file_provider: SourceFileProvider):
+        self.src_file_provider = src_file_provider
+
     def do_parse(self):
+        sources = []
         for file in self.src_file_provider.file_parser():
             self.file_graphs[file] = FileParser(self.ast_providers)
             self.file_graphs[file].parse(file)
+            sources.append(file)
+
+        LoggerFacade.info(f"Parsed program with the following sources:\n\n{sources}.")
+
         for file, file_graph in self.file_graphs.items():
             self.set_file_connections(file_graph.graph, self.program_graph, file)
         connector_args = ProgramParserConnectorArgs(self.file_graphs, self.external_file_graphs,
-                                                    self.program_graph)
+                                                    self.program_graph, self.src_file_provider.base_source())
         for program_graph in self.program_graph_connectors:
             program_graph.add_to_program_graph(connector_args)
 

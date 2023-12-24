@@ -4,6 +4,7 @@ import typing
 
 import injector
 
+from python_util.logger.logger import LoggerFacade
 from python_util.ordered.ordering import Ordered
 
 
@@ -276,9 +277,10 @@ class GenericClassDefParser(ClassDefIntrospectParser):
         elif 'Union' in inner:
             return [IntrospectedGeneric(name=name, gen_types=[t for t in ty])]
         else:
-            assert len(ty) == 0, \
-                f"Unsupported generic type for {name}."
-            return [IntrospectedGeneric(name=name, gen_types=[])]
+            # assert len(ty) == 0, \
+            #     f"Unsupported generic type for {name}."
+            LoggerFacade.debug(f"Found unsupported generic type {ty} with gen types {ty}.")
+            return [IntrospectedGeneric(name=name, gen_types=[t for t in ty])]
 
 
 class SubscriptIntrospecter(TypeIntrospector):
