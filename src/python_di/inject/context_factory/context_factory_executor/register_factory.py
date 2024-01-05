@@ -11,7 +11,7 @@ from python_di.inject.context_factory.context_factory import PrototypeComponentF
 from python_di.inject.context_factory.base_context_factory import CallableFactory
 from python_di.inject.context_factory.type_metadata.inject_ty_metadata import ConfigurationPropertiesInjectTypeMetadata, \
     ComponentSelfFactory, \
-    ComponentFactory, BeanComponentFactory, LifecycleInjectTypeMetadata
+    ComponentFactory, BeanComponentFactory, LifecycleInjectTypeMetadata, MultibindTypeMetadata
 from python_di.inject.context_factory.type_metadata.base_ty_metadata import InjectTypeMetadata, HasFnArgs
 from python_di.inject.context_builder.inject_ctx import inject_context_di
 from python_di.inject.injector_provider import InjectionContextInjector, T
@@ -25,7 +25,8 @@ def register_bean_component_factory(bean_component_factory: BeanComponentFactory
     to_call_created = bean_component_factory.to_call
     ctx.register_component_binding(
         to_call_created,
-        bean_component_factory.ty_to_inject, bean_component_factory.bindings,
+        bean_component_factory.ty_to_inject,
+        bean_component_factory.bindings if bean_component_factory.bindings is not None else [],
         bean_component_factory.scope, bean_component_factory.profile
     )
 
@@ -148,7 +149,6 @@ def register_component_factory(component_factory_data: ComponentFactory,
                            f"criteria for registration.")
 
 
-
 def register_component_self_factory(component_factory_data: ComponentSelfFactory,
                                     ctx: InjectionContextInjector):
     assert isinstance(component_factory_data, ComponentSelfFactory)
@@ -156,6 +156,28 @@ def register_component_self_factory(component_factory_data: ComponentSelfFactory
     cls = f.ty_to_inject
     ctx.register_component_binding(lambda: do_call(f, cls),
                                    cls, f.bindings, f.scope, f.profile)
+
+
+def register_multibind_factory(component_factory_data: MultibindTypeMetadata,
+                               ctx: InjectionContextInjector):
+    assert isinstance(component_factory_data, MultibindTypeMetadata)
+    ctx.register_component_multibinding(_do_multibind_curry(component_factory_data.scope,
+                                                            component_factory_data.profile,
+                                                            component_factory_data.bindings),
+                                        component_factory_data.ty_to_inject,
+                                        component_factory_data.scope,
+                                        component_factory_data.profile)
+
+
+def _do_multibind_curry(scope, profile, bindings) -> typing.Callable:
+    return lambda: _do_multibind(scope, profile, bindings)
+
+
+@inject_context_di()
+def _do_multibind(scope, profile, bindings, ctx: Optional[InjectionContextInjector] = None):
+    return [
+        ctx.get_interface(b, profile=profile, scope=scope) for b in bindings
+    ]
 
 
 def do_call(f, cls):

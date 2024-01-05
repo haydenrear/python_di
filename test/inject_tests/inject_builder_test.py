@@ -7,6 +7,8 @@ import injector
 from python_di.inject.context_builder.injection_context import InjectionContext
 from python_di.inject.profile_composite_injector.composite_injector import profile_scope, \
     prototype_scope_decorator_factory, prototype_scope_decorator
+from test_contexts.dependency_resolution_scan.dep_res_component_scan_referenced_package.circular_dep import \
+    CircularDepFour
 from test_contexts.test_component_scan.component_scan_class_reference_package.component_referenced import \
     ComponentReferenced
 from test_contexts.test_component_scan.component_scan_referenced_package.component_referenced import \
@@ -181,3 +183,15 @@ class InjectorBuilder(unittest.TestCase):
                                      "Multibind did not have expected values")
 
         asserted()
+
+    def test_circular_dep(self):
+        inject_ctx = InjectionContext()
+        env = inject_ctx.initialize_env()
+
+        assert env is not None
+
+        to_scan = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'test_contexts',
+                               'dependency_resolution_scan')
+        inject_ctx.build_context({to_scan}, os.path.dirname(os.path.dirname(__file__)))
+        c: CircularDepFour = inject_ctx.ctx.get_interface(CircularDepFour)
+        assert c is not None

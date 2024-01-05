@@ -14,6 +14,8 @@ from python_di.inject.context_factory.context_factory_editor.merged_context_fact
     MergedConfigurationContextFactoriesEditor, MergedComponentContextFactoriesEditor, \
     MergedInjectionContextFactoriesEditor, ConfigurationPropertiesContextFactoriesEditor, \
     PrototypeContextFactoriesEditor
+from python_di.inject.context_factory.context_factory_editor.multibind_context_factory import \
+    MultibindContextFactoryEditor
 from python_di.inject.context_factory.context_factory_executor.context_factories_executor import InjectMetadataExecutor, \
     AutowireMetadataExecutor, PreConstructMetadataExecutor, PostConstructMetadataExecutor, \
     RegisterFactoryMetadataExecutor
@@ -39,7 +41,8 @@ class FactoryCtx(injector.Module):
     def _factories_editors(self):
         return [ConfigurationPropertiesContextFactoriesEditor, MergedProfileFactoriesEditor,
                 MergedInjectionContextFactoriesEditor, MergedComponentContextFactoriesEditor,
-                MergedConfigurationContextFactoriesEditor, PrototypeContextFactoriesEditor]
+                MergedConfigurationContextFactoriesEditor, PrototypeContextFactoriesEditor,
+                MultibindContextFactoryEditor]
 
     def _context_factory_extractors(self):
         return [

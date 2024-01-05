@@ -2,12 +2,14 @@ import abc
 
 from python_di.configs.constants import LifeCycleHook
 from python_di.inject.context_factory.context_factory import PrototypeComponentFactory
-from python_di.inject.context_factory.type_metadata.inject_ty_metadata import ConfigurationPropertiesInjectTypeMetadata, ComponentFactoryInjectTypeMetadata, ComponentSelfFactory, \
-    ComponentFactory, BeanComponentFactory, LifecycleInjectTypeMetadata
+from python_di.inject.context_factory.type_metadata.inject_ty_metadata import ConfigurationPropertiesInjectTypeMetadata, \
+    ComponentFactoryInjectTypeMetadata, ComponentSelfFactory, \
+    ComponentFactory, BeanComponentFactory, LifecycleInjectTypeMetadata, MultibindTypeMetadata
 from python_di.inject.context_factory.type_metadata.base_ty_metadata import InjectTypeMetadata
 from python_di.inject.context_factory.context_factory_executor.register_factory import register_bean_component_factory, \
     register_prototype_component_factory, \
-    do_lifecycle_hook, register_component_self_factory, register_configuration_properties, register_component_factory
+    do_lifecycle_hook, register_component_self_factory, register_configuration_properties, register_component_factory, \
+    register_multibind_factory
 
 
 class InjectionContextArgs(abc.ABC):
@@ -39,7 +41,8 @@ class RegisterFactoryMetadataExecutor(InjectMetadataExecutor):
                 or isinstance(context_factory, BeanComponentFactory)
                 or isinstance(context_factory, ConfigurationPropertiesInjectTypeMetadata)
                 or isinstance(context_factory, PrototypeComponentFactory)
-                or isinstance(context_factory, LifecycleInjectTypeMetadata))
+                or isinstance(context_factory, LifecycleInjectTypeMetadata)
+                or isinstance(context_factory, MultibindTypeMetadata))
 
 
 class LifecycleHookMetadataExecutor(InjectMetadataExecutor):
@@ -78,6 +81,8 @@ def register_factory(inject_type_metadata: InjectTypeMetadata, factory_metadata:
     assert isinstance(factory_metadata, InjectionContextInjectorContextArgs)
     if isinstance(inject_type_metadata, BeanComponentFactory):
         register_bean_component_factory(inject_type_metadata, factory_metadata.injection_context_injector)
+    elif isinstance(inject_type_metadata, MultibindTypeMetadata):
+        register_multibind_factory(inject_type_metadata, factory_metadata.injection_context_injector)
     elif isinstance(inject_type_metadata, ComponentFactory):
         register_component_factory(inject_type_metadata, factory_metadata.injection_context_injector)
     elif isinstance(inject_type_metadata, ComponentSelfFactory):

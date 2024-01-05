@@ -37,42 +37,64 @@ class ProfileScope(injector.Scope):
             # If fails, try to get from composite scope, which will get from the highest priority profile.
             try:
                 provider = provider.get(self.injector)
-                if isinstance(provider, injector.CallableProvider):
-                    provider = injector.InstanceProvider(provider.get(self.injector))
-                else:
-                    provider = injector.InstanceProvider(provider)
+                assert not isinstance(provider, injector.Provider)
+                instance_provider = injector.InstanceProvider(provider)
             except Exception as e:
+                if isinstance(e, AssertionError):
+                    LoggerFacade.error(f"Found assertion error: {e}")
+                    raise e
                 if isinstance(provider, injector.ClassProvider):
                     cls_found = provider._cls
-                    provider = self._try_get_provider(key, cls_found.__init__)
+                    self._try_fix_bind_issue(cls_found.__init__)
                 elif isinstance(provider, injector.CallableProvider):
                     callable_value = provider._callable
-                    provider = self._try_get_provider(key, callable_value)
+                    self._try_fix_bind_issue(callable_value)
                 else:
                     LoggerFacade.error(f"Could not retrieve unsatisfied requirement: {e}. Unknown provider type "
                                        f"when trying to get from composite: {type(provider).__name__}")
 
+                instance_provider = injector.InstanceProvider(provider.get(self.injector))
 
-            self._context[key] = provider
-            return provider
+            self._context[key] = instance_provider
+            return self._context[key]
 
-    def _try_get_provider(self, key, provider):
+    def _try_fix_bind_issue(self, provider):
         bindings_created = injector.get_bindings(provider)
         retrieved_composite_scope = self.injector.get(CompositeScope, scope=injector.singleton)
         for binding_key, binding_ty in bindings_created.items():
-            if binding_ty not in self.injector.binder.bindings.keys():
-                retrieved_composite_scope.get(key, injector.CallableProvider(provider))
+            self._get_register_binding_dep_recursive(binding_ty, retrieved_composite_scope)
+
+    def _get_register_binding_dep_recursive(self, binding_ty, retrieved_composite_scope):
+        """
+        Recursively climb the dependency tree if the binder does not exist. The composite scope is the ability to
+        walk through the other ProfileScopes in order of precedence.
+        :param binding_ty:
+        :param retrieved_composite_scope:
+        :return:
+        """
+        is_valid_dep = self._is_valid_dep(binding_ty)
+        if is_valid_dep:
+            if binding_ty not in self.injector.binder.bindings.keys() and is_valid_dep:
+                self._context[binding_ty] = retrieved_composite_scope.get(binding_ty,
+                                                                          injector.ClassProvider(binding_ty))
             elif binding_ty not in self._context.keys():
-                self._context[key] = injector.InstanceProvider(
-                    retrieved_composite_scope.get(key, injector.CallableProvider(provider)))
-                provider = self._context[key]
-        return provider
+                # to prohibit infinite recursion, as the composite scope will inevitably ask this profile scope again.
+                del self.injector.binder._bindings[binding_ty]
+                self._context[binding_ty] = retrieved_composite_scope.get(
+                    binding_ty,
+                    self.injector.binder.get_binding(binding_ty)[0].provider)
+                self.injector.binder._bindings[binding_ty] = self._context[binding_ty]
+        else:
+            LoggerFacade.info(f"Skipped {binding_ty} as dependency.")
 
     def __contains__(self, item: Type[T]):
         return item in self._context.keys()
 
     def __iter__(self):
         yield from self._context.items()
+
+    def _is_valid_dep(self, ty):
+        return 'Optional' not in str(ty)
 
 
 profile_scope = injector.ScopeDecorator(ProfileScope)
@@ -158,47 +180,50 @@ class CompositeScope(injector.SingletonScope):
             # the injector, can try to get the provider, and if it fails iterate through the profiles in priority
             # order and add to the CompositeScope _context and/or the top-level injector.
             try:
-                provider_found = provider.get(self.injector)
+                provided = injector.InstanceProvider(provider.get(self.injector))
             except Exception as e:
-                all_profile_scopes: typing.List[ProfileScope] = self.injector.get(typing.List[ProfileScope],
-                                                                                  scope=composite_scope)
+                all_profile_scopes: typing.List[ProfileScope] \
+                    = self.injector.get(typing.List[ProfileScope], scope=composite_scope)
                 if isinstance(provider, injector.ClassProvider):
                     cls_found = provider._cls
-                    provider_found = self._try_get_provider(all_profile_scopes, cls_found.__init__, provider)
+                    self._try_fix_dep_bindings(all_profile_scopes, cls_found.__init__)
                 elif isinstance(provider, injector.CallableProvider):
-                    cls_found = provider._callable
-                    provider_found = self._try_get_provider(all_profile_scopes, cls_found, provider)
+                    callable_found = provider._callable
+                    self._try_fix_dep_bindings(all_profile_scopes, callable_found)
                 else:
                     LoggerFacade.error(f"Error getting {key}. Could not retrieve from profile because was provider "
                                        f"of type {provider.__class__.__name__}")
                     raise e
-            provider = InstanceProvider(provider_found)
-            self._context[key] = provider
-            self.register_binding_idempotently(key, provider)
+
+                provided = injector.InstanceProvider(provider.get(self.injector))
+
+            self._context[key] = provided
             return provider
 
-    def _try_get_provider(self, all_profile_scopes, fn_bound, provider):
+    def _try_fix_dep_bindings(self, all_profile_scopes, fn_bound):
+        """
+        Sometimes a dependency will be bound in a profile scope, in which case the value needs to be added to this
+        context as well.
+        :param all_profile_scopes:
+        :param fn_bound:
+        :return:
+        """
         bindings_created = injector.get_bindings(fn_bound)
         for binding_key, binding_ty in bindings_created.items():
             for p in sorted(all_profile_scopes,
                             key=lambda next_profile_scope: next_profile_scope.profile,
                             reverse=True):
                 if binding_ty in self.injector.binder._bindings.keys():
-                    try:
-                        self.injector.get(binding_ty)
+                    if binding_ty in self._context.keys():
                         continue
-                    except:
-                        pass
-                if binding_ty in p.injector.binder._bindings.keys():
-                    try:
-                        created_value = p.injector.get(binding_ty)
-                        self.register_binding_idempotently(binding_ty, injector.InstanceProvider(created_value))
-                        continue
-                    except:
-                        pass
+                    else:
+                        provider: injector.Provider = self.injector.binder.get_binding(binding_ty)[0].provider
+                        self._context[binding_ty] = self.get(binding_ty, provider)
+                elif binding_ty in p.injector.binder._bindings.keys():
+                    provider: injector.Provider = p.injector.binder.get_binding(binding_ty)[0].provider
+                    self._context[binding_ty] = p.get(binding_ty, provider)
+                    self.register_binding_idempotently(binding_ty, self._context[binding_ty])
 
-        provider_found = provider.get(self.injector)
-        return provider_found
 
     def _get_fn(self, binding_ty, injector_fn):
         ty__provider = injector_fn.binder.get_binding(binding_ty)[0].provider

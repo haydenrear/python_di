@@ -100,7 +100,7 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
                     args_to_call[fn_arg_key] = args[i]
                 elif fn_arg_key in kwargs.keys() and kwargs[fn_arg_key] is not None:
                     args_to_call[fn_arg_key] = kwargs[fn_arg_key]
-                elif ty_value_reflected is not None:
+                elif ty_value_reflected is not None and 'inspect._empty' not in str(ty_value_reflected):
                     args_to_call[fn_arg_key] = retrieve_descriptor(ty_value_reflected, fn_arg_key, default_value,
                                                                    scope_decorator_found, profile_found,
                                                                    descr[fn_arg_key]
@@ -108,7 +108,7 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
                                                                    else None)
                 elif default_value is None:
                     LoggerFacade.error("Found autowire fn with arg that has no default value, no value provided, and "
-                                       "no type to inject from.")
+                                       f"no type to inject from when autowiring for {fn}.")
             try:
                 return fn(**args_to_call)
             except Exception as e:

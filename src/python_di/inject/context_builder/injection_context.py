@@ -57,7 +57,10 @@ class InjectionContext:
         context_builder: InjectionContextBuilder \
             = self.ctx.get_interface(InjectionContextBuilder, scope=injector.singleton)
 
-        context_builder.build_context(InjectionContextInjectorContextArgs(self.ctx, parent_sources, source_directory))
+        ctx_args = InjectionContextInjectorContextArgs(self.ctx, parent_sources, source_directory)
+        factories = context_builder.build_context(ctx_args)
 
         for b in self.ctx.injectors_dictionary.injectors.values():
             b.collapse_injectors()
+
+        context_builder.do_lifecycle_hooks(factories, ctx_args)

@@ -38,7 +38,9 @@ class InjectionContextBuilder:
         factories_found = self._organize_factories(factories_found)
 
         self._register_context(factories_found, inject_context_args)
+        return factories_found
 
+    def do_lifecycle_hooks(self, factories_found, inject_context_args: InjectionContextArgs):
         self._pre_construct(factories_found, inject_context_args)
         self._autowire_construct(factories_found, inject_context_args)
         self._post_construct(factories_found, inject_context_args)

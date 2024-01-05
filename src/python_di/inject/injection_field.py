@@ -44,7 +44,6 @@ class InjectionObservationField:
         self.collapsed: typing.Optional[CompositeInjector] = None
         self.profile_injector: typing.Optional[CompositeInjector] = None
         self.registered_event: asyncio.Event = asyncio.Event()
-        self.composite_multibind_registrar: dict[typing.Type, typing.List[typing.Type]] = {}
 
     def register_injector(self, to_register: CompositeInjector):
         self.injectors.append(to_register)
@@ -80,8 +79,6 @@ class InjectionObservationField:
                     self._collapse_injectors(self.collapsed, self.injectors, self.profile_scope, self.composite_scope)
                     self.injectors.clear()
                 self.bind_scopes(self.collapsed)
-
-        self.collapse_register_multibind()
 
         return self._retrieve_injector_inner()
 
@@ -159,100 +156,6 @@ class InjectionObservationField:
 
     def contains_config_type(self, config_type: typing.Type):
         return config_type in self.config_injectors.keys()
-
-    def register_multibindable(self, in_collection_bindings: list[type], concrete, scope):
-        for i in in_collection_bindings:
-            self.register_multibind([concrete], typing.List[i], scope)
-
-    def register_multibind(self, in_collection_bindings: list[type], concrete, scope):
-        self._add_to_registrar(concrete, in_collection_bindings, self.composite_multibind_registrar)
-
-    @staticmethod
-    def _add_to_registrar(concrete, in_collection_bindings, registrar):
-        if concrete in registrar.keys():
-            for i in in_collection_bindings:
-                if i not in registrar[concrete]:
-                    LoggerFacade.info(f"Adding {i} to {concrete} as Multibindable Registration")
-                    registrar[concrete].append(i)
-        else:
-            registrar[concrete] = in_collection_bindings
-
-    def collapse_register_multibind(self):
-        from python_di.env.base_env_properties import DEFAULT_PROFILE
-        injector_created = self._retrieve_injector_inner()
-        if len(self.composite_multibind_registrar) != 0:
-            for concrete, in_collection_bindings in self.composite_multibind_registrar.items():
-                scope = self.composite_scope if self.profile_scope.profile.profile_name == DEFAULT_PROFILE else self.profile_scope
-                provider = self._get_provider(concrete, scope)
-                if provider is not None:
-                    finished = self._retrieve_finished(in_collection_bindings, injector_created, provider)
-                    assert isinstance(provider, injector.MultiBindProvider)
-                    injector_created.multibind(
-                        concrete,
-                        lambda: self._retrieve_val([i for i in in_collection_bindings if i not in finished], scope,
-                                                   concrete),
-                        scope=self.create_get_scope(scope))
-                else:
-                    if provider is None and len(in_collection_bindings) != 0:
-                        LoggerFacade.info(f"Creating provider {provider} for {in_collection_bindings}")
-                        injector_created.binder.multibind(concrete,
-                                                          self._retrieve_val_curry(in_collection_bindings, scope,
-                                                                                   concrete),
-                                                          scope=self.create_get_scope(scope))
-            self.composite_multibind_registrar.clear()
-
-    def _retrieve_val_curry(self, bindings, scope, concrete):
-        return lambda: self._retrieve_val(bindings, scope, concrete)
-
-    def _retrieve_val(self, bindings, scope, concrete):
-        if not self.registered_event.is_set():
-            self.collapse_injectors()
-        out_bindings = []
-        for b in bindings:
-            out_bindings.append(self.retrieve_injector().get(b, scope=self.create_get_scope(scope)))
-
-        return out_bindings
-
-    def create_get_scope(self, scope_item):
-        if isinstance(scope_item, ProfileScope):
-            return profile_scope
-        elif isinstance(scope_item, CompositeScope):
-            return composite_scope
-        elif isinstance(scope_item, injector.SingletonScope):
-            return injector.singleton
-        return injector.singleton
-
-    def _retrieve_finished(self, in_collection_bindings, injector_created, provider):
-        finished = []
-        for flattened_provider in flatten_providers(provider):
-            for t in in_collection_bindings:
-                self._mark_potential_provider_already_existing(finished, flattened_provider, injector_created, t)
-        return finished
-
-    @staticmethod
-    def _mark_potential_provider_already_existing(finished, flattened_provider, injector_created, t):
-        if isinstance(flattened_provider,
-                      injector.ClassProvider) and t not in finished and t == flattened_provider._cls:
-            finished.append(t)
-        elif isinstance(flattened_provider, injector.InstanceProvider):
-            found_created = flattened_provider.get(injector_created)
-            if t not in finished and type(found_created) == t:
-                finished.append(t)
-        elif isinstance(flattened_provider, injector.CallableProvider):
-            found_created = flattened_provider.get(injector_created)
-            if t not in finished and type(found_created) == t:
-                finished.append(t)
-        elif isinstance(flattened_provider, injector.MultiBindProvider):
-            LoggerFacade.info(f"{t} was not finished for {flattened_provider}.")
-
-    @staticmethod
-    def _get_provider(concrete, scope) -> injector.Provider:
-        if hasattr(scope, '_context') and concrete in scope._context.keys():
-            return scope._context[concrete]
-        else:
-            if concrete in scope.injector.binder._bindings.keys():
-                binding = scope.injector.binder.get_binding(concrete)
-                return binding[0].provider
 
     def __len__(self):
         return len(self.injectors) + len(self.config_injectors)

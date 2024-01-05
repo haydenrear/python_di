@@ -3,7 +3,9 @@ from typing import Optional
 
 import injector
 
+from python_di.configs.bean import BeanArg
 from python_di.configs.di_util import DiUtilConstants, get_wrapped_fn, get_underlying
+from python_di.inject.context_builder.ctx_util import set_add_context_factory
 from python_di.inject.context_factory.context_factory import ComponentContextFactory
 from python_di.inject.context_factory.type_metadata.inject_ty_metadata import ComponentFactoryInjectTypeMetadata, \
     ComponentSelfFactory, ComponentFactory
@@ -29,7 +31,7 @@ def component(bind_to: list[type] = None,
             c_factory = _get_c_factory(cls, profile)
             self_factories.append(c_factory)
 
-        cls.context_factory = [ComponentContextFactory(self_factories)]
+        set_add_context_factory([ComponentContextFactory(self_factories)], cls)
 
         return cls
 
@@ -55,25 +57,34 @@ def component(bind_to: list[type] = None,
             if hasattr(cls, class_property_name):
                 potential_self_bean_factory = getattr(cls, class_property_name)
                 if (hasattr(potential_self_bean_factory, DiUtilConstants.wrapped_fn.name)
-                        and hasattr(potential_self_bean_factory.wrapped_fn, 'self_factory')
-                        and potential_self_bean_factory.wrapped_fn.self_factory):
-
+                        and hasattr(potential_self_bean_factory.wrapped_fn, 'is_bean')
+                        and potential_self_bean_factory.wrapped_fn.is_bean.self_factory):
+                    is_bean: BeanArg = potential_self_bean_factory.wrapped_fn.is_bean
                     self_bean_factory, wrapped = get_wrapped_fn(potential_self_bean_factory)
-                    config_profile = self_bean_factory.profile
+                    config_profile = is_bean.profile
                     config_profile = retrieve_profiles(config_profile)
 
                     assert isinstance(config_profile, list)
+                    bean_bindings = _get_bean_bindings(bindings, is_bean)
+                    bean_priority = is_bean.priority
 
                     for p in config_profile:
-                        priority = self_bean_factory.priority
-                        self_factory_scope = get_create_self_factory_scope(self_bean_factory)
+                        self_factory_scope = get_create_self_factory_scope(is_bean)
                         LoggerFacade.info(f"Found bean self factory for {config_profile} and {cls}.")
-                        factory = ComponentSelfFactory(cls, underlying, p, priority, self_factory_scope, wrapped,
-                                                       bindings, self_bean_factory)
+                        factory = ComponentSelfFactory(cls, underlying, p, bean_priority, self_factory_scope, wrapped,
+                                                       bean_bindings, self_bean_factory)
                         component_self_factories.append(factory)
 
 
         return component_self_factories
+
+    def _get_bean_bindings(bindings, is_bean):
+        bean_bindings_ = is_bean.bindings
+        all_bean_bindings = set([b for b in bean_bindings_]) if bean_bindings_ is not None else set([])
+        if bindings is not None:
+            for b in bindings:
+                all_bean_bindings.add(b)
+        return [b_ for b_ in all_bean_bindings]
 
     def retrieve_profiles(config_profile):
         if config_profile is None:

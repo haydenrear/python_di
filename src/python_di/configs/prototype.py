@@ -7,6 +7,7 @@ import injector
 from python_di.configs.constants import DiUtilConstants
 from python_di.configs.di_util import get_underlying, get_wrapped_fn
 from python_di.env.base_env_properties import DEFAULT_PROFILE
+from python_di.inject.context_builder.ctx_util import set_add_context_factory
 from python_di.inject.profile_composite_injector.composite_injector import PrototypeScopeDecorator, profile_scope, \
     prototype_scope_decorator_factory
 from python_di.inject.context_factory.context_factory import PrototypeComponentFactory
@@ -97,15 +98,19 @@ def prototype_scope_bean(profile: typing.Optional[str] = None,
                 wrapped_values = retrieve_wrapped_factory_fn(underlying)
                 assert wrapped_values is not None
                 wrapped_fn, wrapped_values = wrapped_values
-                cls.clean_kwargs(kwargs)
+                cls.clean_kwargs(kwargs, wrapped_values)
                 bean_scopes, construct_values, prototype_decorator \
                     = cls.get_bean_factory_data(kwargs, wrapped_fn, wrapped_values)
 
                 for to_get_key, to_get_value in wrapped_values.items():
-                    bean_descr = cls.get_bean_descr(bean_scopes, to_get_key)
+                    if to_get_key in construct_values.keys():
+                        continue
 
+                    bean_descr = cls.get_bean_descr(bean_scopes, to_get_key)
                     bean_profile = cls.get_bean_profile(bean_descr, prototype_decorator, bean_profile)
+
                     from python_di.inject.context_factory.context_factory_executor.register_factory import get_bean_dependency
+
                     construct_values[to_get_key] = get_bean_dependency(
                         to_get_value,
                         bean_scope=cls.retrieve_bean_scope_item(bean_descr, prototype_decorator, bean_profile,
@@ -120,10 +125,15 @@ def prototype_scope_bean(profile: typing.Optional[str] = None,
                     return created
 
             @classmethod
-            def clean_kwargs(cls, kwargs):
-                to_delete = [k for k, v in kwargs.items() if v is None]
+            def clean_kwargs(cls, kwargs, constructed):
+                to_delete = [k for k, v in kwargs.items() if v is None
+                             and (k not in constructed.keys() or cls._is_not_optional(constructed, k))]
                 for k in to_delete:
                     del kwargs[k]
+
+            @classmethod
+            def _is_not_optional(cls, constructed, k):
+                return 'typing.Optional' not in str(constructed[k])
 
             @classmethod
             def get_bean_descr(cls, bean_scopes, to_get_key):
@@ -185,12 +195,11 @@ def prototype_scope_bean(profile: typing.Optional[str] = None,
             return cls
         else:
             fn, wrapped = fn_wrapped
-            underlying.context_factory = [PrototypeComponentFactory(
+            set_add_context_factory([PrototypeComponentFactory(
                 prototype_self, underlying, fn.profile, fn.priority if hasattr(fn, 'priority') else None,
                 fn.prototype_decorator, wrapped, bindings if bindings is not None else [],
                 fn, PrototypeFactoryProxy
-            )]
-
+            )], underlying)
         underlying.prototype_bean_factory_ty = PrototypeFactoryProxy
         return cls
 

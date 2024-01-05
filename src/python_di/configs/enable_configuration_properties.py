@@ -7,7 +7,7 @@ from python_di.inject.context_factory.context_factory import ConfigurationProper
 def enable_configuration_properties(config_props: typing.List[typing.Type[ConfigurationProperties]]):
     def class_decorator_inner(cls):
         cls.config_properties_context_factory = True
-        cls.context_factory = lambda: _get_ctx_properties_factory(cls)
+        cls.config_props_context_factory = lambda: _get_ctx_properties_factory(cls)
         return cls
 
     def _get_ctx_properties_factory(cls):

@@ -83,8 +83,16 @@ class InjectionContextInjector:
         return self.injectors_dictionary.register_component(concrete, bindings, scope,
                                                             profile=self._retrieve_create_profile(profile))
 
+    def register_component_multibinding(self,
+                                        binding: typing.Callable,
+                                        concrete_ty: typing.Type[T],
+                                        scope, profile: Optional[str] = None):
+        self.injectors_dictionary: InjectorsPrioritized = self.injectors_dictionary
+        return self.injectors_dictionary.register_component_multibinding(concrete_ty, binding, scope,
+                                                                         profile=self._retrieve_create_profile(profile))
+
     def register_component_binding(self,
-                                   binding: injector.Provider[T],
+                                   binding: typing.Union[injector.Provider[T], typing.Callable],
                                    concrete_ty: typing.Type[T],
                                    bindings: list[type], scope,
                                    profile: Optional[str] = None):
@@ -126,24 +134,14 @@ class InjectionContextInjector:
     def get_interface(self, type_value: typing.Type[T], profile: Optional[str] = None,
                       scope: injector.ScopeDecorator = None, **kwargs) -> Optional[T]:
         created_profile = self._retrieve_create_profile(profile) if profile is not None else None
-        try:
-            found_obj = self._perform_injector(
-                lambda i, exc, kwargs_found: self.get_binding(i, type_value, created_profile,
-                                                              scope, **kwargs),
-                profile, type_value, scope, False)
-            if found_obj is not None:
-                return found_obj
-            else:
-                LoggerFacade.warn(f"Could not find {type_value}.")
-        except Exception as e:
-            found_obj = self._perform_injector(
-                lambda i, exc, kwargs_found: self.get_binding(i, type_value, created_profile,
-                                                              scope, **kwargs),
-                profile, type_value, scope, True)
-            if found_obj is not None:
-                return found_obj
-            else:
-                LoggerFacade.warn(f"Could not find {type_value}.")
+        found_obj = self._perform_injector(
+            lambda i, exc, kwargs_found: self.get_binding(i, type_value, created_profile,
+                                                          scope, **kwargs),
+            profile, type_value, scope, False)
+        if found_obj is not None:
+            return found_obj
+        else:
+            LoggerFacade.warn(f"Could not find {type_value}.")
 
     def get_property_with_default(self, key, default, profile_name=None):
         if self.environment is not None:

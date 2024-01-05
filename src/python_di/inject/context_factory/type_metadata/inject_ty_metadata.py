@@ -100,10 +100,10 @@ class BeanComponentFactory(ComponentFactoryInjectTypeMetadata):
     @classmethod
     def new_bean_component_factory(cls, bean_ty: typing.Type[T], profile: str, priority: int,
                                    scope: injector.ScopeDecorator, factory: typing.Callable,
-                                   lazy: bool = False):
+                                   lazy: bool = False, bindings: list[typing.Type] = None):
         return BeanComponentFactory(
             bean_ty, bean_ty, profile, priority,
-            scope, {}, [], factory,
+            scope, {}, bindings, factory,
             lazy
         )
 
@@ -152,3 +152,15 @@ class PrototypeFactory(abc.ABC):
     @abc.abstractmethod
     def create(self, profile: typing.Optional[str] = None, **kwargs):
         pass
+
+
+class MultibindTypeMetadata(InjectTypeMetadata):
+
+    def __init__(self,
+                 ty_to_inject: typing.Type[T],
+                 profile: typing.Union[str, list[str]],
+                 scope: injector.ScopeDecorator,
+                 bindings: list[InjectTypeMetadata]):
+        super().__init__(ty_to_inject, ty_to_inject, profile, -1, scope, {},
+                         [b.ty_to_inject for b in bindings])
+        self.binding_item = bindings
