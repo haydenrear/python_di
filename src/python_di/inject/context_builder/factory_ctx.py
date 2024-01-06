@@ -8,6 +8,8 @@ from python_di.inject.context_builder.component_scanner import ComponentScanner
 from python_di.inject.context_builder.injection_context_builder import InjectionContextBuilder
 from python_di.inject.context_factory.context_factory_editor.base_merge_context_factory import \
     MergedContextFactoriesEditor
+from python_di.inject.context_factory.context_factory_editor.lifecycle_context_factory import \
+    LifecycleContextFactoriesEditor
 from python_di.inject.context_factory.context_factory_editor.merge_profile_factories_editor import \
     MergedProfileFactoriesEditor
 from python_di.inject.context_factory.context_factory_editor.merged_context_factories import \
@@ -21,7 +23,7 @@ from python_di.inject.context_factory.context_factory_executor.context_factories
     RegisterFactoryMetadataExecutor
 from python_di.inject.context_factory.context_factory_extractor.context_factory_extract import \
     ConfigurationContextFactoryExtract, ComponentContextFactoryExtract, ContextFactoryExtract, \
-    ConfigurationPropertiesFactoryExtract, InjectableFactoryExtract, PrototypeFactoryExtract
+    ConfigurationPropertiesFactoryExtract, PrototypeFactoryExtract, InjectableFactoryExtract
 
 
 class FactoryCtx(injector.Module):
@@ -42,13 +44,14 @@ class FactoryCtx(injector.Module):
         return [ConfigurationPropertiesContextFactoriesEditor, MergedProfileFactoriesEditor,
                 MergedInjectionContextFactoriesEditor, MergedComponentContextFactoriesEditor,
                 MergedConfigurationContextFactoriesEditor, PrototypeContextFactoriesEditor,
-                MultibindContextFactoryEditor]
+                MultibindContextFactoryEditor,
+                # LifecycleContextFactoriesEditor
+                ]
 
     def _context_factory_extractors(self):
         return [
-            ConfigurationPropertiesFactoryExtract, InjectableFactoryExtract,
-            ComponentContextFactoryExtract, ConfigurationContextFactoryExtract,
-            PrototypeFactoryExtract
+            ConfigurationPropertiesFactoryExtract, ComponentContextFactoryExtract, ConfigurationContextFactoryExtract,
+            PrototypeFactoryExtract, InjectableFactoryExtract
         ]
 
     def _context_exexecutors(self):

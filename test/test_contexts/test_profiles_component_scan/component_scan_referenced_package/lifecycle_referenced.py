@@ -18,10 +18,11 @@ class HasLifecycle:
     def has_post_construct(self):
         self.to_test['post_construct'] = True
 
-    @autowire(profile='test')
+    @autowire(injectable_profile='test')
     def set_value(self, to_set: OtherProfileComponentFromConfiguration):
         self.to_test['test_autowire'] = to_set
+        print('hello')
 
-    @autowire(profile='validation')
+    @autowire(injectable_profile='validation')
     def set_validation_value(self, to_set: OtherProfileComponentFromConfiguration):
         self.to_test['validation_autowire'] = to_set

@@ -3,11 +3,9 @@ import typing
 
 import injector
 
-import python_util.reflection.reflection_utils
-from python_di.inject.profile_composite_injector.composite_injector import CompositeInjector, ProfileScope, \
-    CompositeScope, profile_scope, composite_scope
-from python_di.inject.profile_composite_injector.multibind_util import flatten_providers
-from python_util.logger.logger import LoggerFacade
+from python_di.inject.profile_composite_injector.composite_injector import CompositeInjector
+from python_di.inject.profile_composite_injector.scopes.composite_scope import CompositeScope
+from python_di.inject.profile_composite_injector.scopes.profile_scope import ProfileScope
 
 T = typing.TypeVar("T")
 

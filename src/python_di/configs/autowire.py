@@ -1,6 +1,10 @@
+import asyncio
+import functools
+import threading
 import typing
 from typing import Optional
 
+import injector
 from injector import ScopeDecorator
 
 from python_di.configs.base_config import DiConfiguration
@@ -9,14 +13,18 @@ from python_di.configs.di_util import get_underlying, get_wrapped_fn, DiUtilCons
     retrieve_fn_ty
 from python_di.configs.di_util import has_sub
 from python_di.env.profile import Profile
-from python_di.inject.context_factory.context_factory_provider.context_factories_provider import InjectableContextFactoryProvider
+from python_di.inject.context_factory.context_factory_provider.context_factories_provider import \
+    InjectableContextFactoryProvider
 from python_di.inject.context_factory.context_factory_executor.metadata_factory import LifeCycleMetadataFactory
 from python_di.inject.context_factory.context_factory import PostConstructFactory, AutowireFactory, PreConstructFactory
 from python_di.inject.context_factory.context_factory_executor.register_factory import retrieve_factory
 from python_util.logger.logger import LoggerFacade
 
+registration_lock = threading.RLock()
+
 
 def autowire(profile: Optional[str] = None,
+             injectable_profile: Optional[str] = None,
              priority: Optional[int] = None,
              non_typed_ids: dict[str, typing.Callable[[], typing.Type]] = None,
              scope: Optional[ScopeDecorator] = None):
@@ -27,11 +35,12 @@ def autowire(profile: Optional[str] = None,
         fn, wrapped = get_wrapped_fn(fn)
         fn_ty = retrieve_fn_ty(fn)
 
+        @functools.wraps(fn)
         def do_inject(*args, **kwargs):
             return fn(*args, **kwargs)
 
-        fn.lifecycle = LifeCycleMetadataFactory(LifeCycleHook.autowire, fn_ty, profile, priority, scope)
-        fn.injectable_profile = profile
+        fn.lifecycle = LifeCycleMetadataFactory(LifeCycleHook.autowire, fn_ty, profile, injectable_profile,
+                                                priority, scope)
         fn.wrapped = wrapped
         do_inject.wrapped_fn = fn
         return do_inject
@@ -42,6 +51,7 @@ def autowire(profile: Optional[str] = None,
 def post_construct(fn):
     fn, wrapped = get_wrapped_fn(fn)
 
+    @functools.wraps(fn)
     def do_post_construct(*args, **kwargs):
         LoggerFacade.debug(f"Performing post construct for {fn}.")
         return fn(*args, **kwargs)
@@ -54,13 +64,14 @@ def post_construct(fn):
 def pre_construct(fn):
     fn, wrapped = get_wrapped_fn(fn)
 
-    def do_post_construct(*args, **kwargs):
-        LoggerFacade.debug(f"Performing post construct for {fn}.")
+    @functools.wraps(fn)
+    def do_pre_construct(*args, **kwargs):
+        LoggerFacade.debug(f"Performing pre construct for {fn}.")
         return fn(*args, **kwargs)
 
     fn.lifecycle = LifeCycleMetadataFactory(LifeCycleHook.pre_construct, retrieve_fn_ty(fn))
-    do_post_construct.wrapped_fn = fn
-    return do_post_construct
+    do_pre_construct.wrapped_fn = fn
+    return do_pre_construct
 
 
 def injectable(profile: Optional[typing.Union[Profile, str]] = None,
@@ -80,6 +91,7 @@ def injectable(profile: Optional[typing.Union[Profile, str]] = None,
             def __init__(self, *args, **kwargs):
                 LoggerFacade.debug(f"Initializing autowire proxy for {underlying}.")
                 super().__init__(*args, **kwargs)
+                self.did_register = asyncio.Event()
                 self._pre_construct_factory, self._autowire_factory, self._post_construct_factory \
                     = self._iterate_constructables()
                 out_factories = []
@@ -88,9 +100,20 @@ def injectable(profile: Optional[typing.Union[Profile, str]] = None,
                 out_factories.extend(self._pre_construct_factory)
                 self._context_factory = out_factories
 
+            @injector.synchronized(registration_lock)
+            def did_already_register_factories(self):
+                if self.did_register.is_set():
+                    return True
+                else:
+                    self.did_register.set()
+                    return False
+
             @property
             def context_factory(self) -> list[typing.Union[PostConstructFactory, AutowireFactory, PreConstructFactory]]:
-                return self._context_factory
+                if not self.did_already_register_factories():
+                    return self._context_factory
+                else:
+                    return []
 
             @property
             def post_construct_factory(self) -> list[PostConstructFactory]:
@@ -134,8 +157,8 @@ def injectable(profile: Optional[typing.Union[Profile, str]] = None,
             @staticmethod
             def _update_lifecycle_metadata(v):
                 lifecycle: LifeCycleMetadataFactory = v.lifecycle
-                if lifecycle.injectable_profile is None and profile is not None:
-                    lifecycle.injectable_profile = profile
+                if lifecycle.profile is None and profile is not None:
+                    lifecycle.profile = profile
                 if lifecycle.scope_decorator is None and scope is not None:
                     lifecycle.scope_decorator = scope
                 return lifecycle
@@ -169,7 +192,7 @@ def injectable(profile: Optional[typing.Union[Profile, str]] = None,
                 return values
 
         cls_value.proxied = underlying
-        cls_value.context_factory_provider = InjectableProxy
+        cls_value.context_factory_provider = InjectableProxy()
         cls_value.injectable_context_factory = True
 
         return cls_value

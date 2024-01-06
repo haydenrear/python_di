@@ -8,7 +8,8 @@ from python_di.configs.constants import DiUtilConstants
 from python_di.configs.di_util import get_underlying, get_wrapped_fn
 from python_di.env.base_env_properties import DEFAULT_PROFILE
 from python_di.inject.context_builder.ctx_util import set_add_context_factory
-from python_di.inject.profile_composite_injector.composite_injector import PrototypeScopeDecorator, profile_scope, \
+from python_di.inject.profile_composite_injector.composite_injector import profile_scope
+from python_di.inject.profile_composite_injector.scopes.prototype_scope import PrototypeScopeDecorator, \
     prototype_scope_decorator_factory
 from python_di.inject.context_factory.context_factory import PrototypeComponentFactory
 from python_di.inject.context_factory.type_metadata.inject_ty_metadata import PrototypeFactory

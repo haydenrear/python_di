@@ -63,7 +63,7 @@ def retrieve_factory(lifecycle_factory: CallableFactory,
         if key == 'self' or key == 'args' or key == 'kwargs' or key == 'cls':
             continue
         try:
-            LoggerFacade.info(f"Retrieving bean: {val} for bean factory: {v}.")
+            LoggerFacade.info(f"Retrieving bean: {val} for bean factory: {v} and profile {profile}.")
             from python_di.env.env_properties import DEFAULT_PROFILE
             from python_di.inject.profile_composite_injector.composite_injector import profile_scope
             found = ctx.get_interface(val, profile,

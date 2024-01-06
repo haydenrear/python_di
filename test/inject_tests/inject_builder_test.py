@@ -5,8 +5,9 @@ import unittest
 import injector
 
 from python_di.inject.context_builder.injection_context import InjectionContext
-from python_di.inject.profile_composite_injector.composite_injector import profile_scope, \
-    prototype_scope_decorator_factory, prototype_scope_decorator
+from python_di.inject.profile_composite_injector.composite_injector import profile_scope
+from python_di.inject.profile_composite_injector.scopes.prototype_scope import prototype_scope_decorator, \
+    prototype_scope_decorator_factory
 from test_contexts.dependency_resolution_scan.dep_res_component_scan_referenced_package.circular_dep import \
     CircularDepFour
 from test_contexts.test_component_scan.component_scan_class_reference_package.component_referenced import \
@@ -154,6 +155,8 @@ class InjectorBuilder(unittest.TestCase):
                                'test_profiles_component_scan')
         inject_ctx.build_context({to_scan}, os.path.dirname(os.path.dirname(__file__)))
         lifecycle_value: HasLifecycle = inject_ctx.ctx.get_interface(HasLifecycle)
+        lifecycle_value_validation: HasLifecycle = inject_ctx.ctx.get_interface(HasLifecycle)
+        lifecycle_value_main: HasLifecycle = inject_ctx.ctx.get_interface(HasLifecycle)
 
         assert 'post_construct' in lifecycle_value.to_test.keys()
         assert 'test_autowire' in lifecycle_value.to_test.keys()

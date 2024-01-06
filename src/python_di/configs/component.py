@@ -56,9 +56,7 @@ def component(bind_to: list[type] = None,
         for class_property_name, class_property_method_value in cls.__dict__.items():
             if hasattr(cls, class_property_name):
                 potential_self_bean_factory = getattr(cls, class_property_name)
-                if (hasattr(potential_self_bean_factory, DiUtilConstants.wrapped_fn.name)
-                        and hasattr(potential_self_bean_factory.wrapped_fn, 'is_bean')
-                        and potential_self_bean_factory.wrapped_fn.is_bean.self_factory):
+                if _is_bean_self_factory(potential_self_bean_factory):
                     is_bean: BeanArg = potential_self_bean_factory.wrapped_fn.is_bean
                     self_bean_factory, wrapped = get_wrapped_fn(potential_self_bean_factory)
                     config_profile = is_bean.profile
@@ -77,6 +75,11 @@ def component(bind_to: list[type] = None,
 
 
         return component_self_factories
+
+    def _is_bean_self_factory(potential_self_bean_factory):
+        return (hasattr(potential_self_bean_factory, DiUtilConstants.wrapped_fn.name)
+                and hasattr(potential_self_bean_factory.wrapped_fn, 'is_bean')
+                and potential_self_bean_factory.wrapped_fn.is_bean.self_factory)
 
     def _get_bean_bindings(bindings, is_bean):
         bean_bindings_ = is_bean.bindings

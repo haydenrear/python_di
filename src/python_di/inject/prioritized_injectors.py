@@ -7,11 +7,12 @@ from typing import Optional
 import injector
 
 from python_di.env.profile import Profile
-from python_di.inject.profile_composite_injector.composite_injector import CompositeInjector, CompositeScope, \
-    ProfileScope, composite_scope
+from python_di.inject.profile_composite_injector.composite_injector import CompositeInjector, composite_scope
+from python_di.inject.profile_composite_injector.scopes.composite_scope import CompositeScope
+from python_di.inject.profile_composite_injector.scopes.profile_scope import ProfileScope
 from python_di.inject.profile_composite_injector.inject_utils import is_scope_singleton_scope
 from python_di.inject.injection_field import InjectionObservationField
-from python_di.inject.profile_composite_injector.multibind_util import is_multibindable, is_multibindable_provider
+from python_di.inject.profile_composite_injector.multibind_util import is_multibindable
 from python_util.concurrent.synchronized_lock_stripe import synchronized_lock_striping, LockStripingLocks
 from python_util.logger.logger import LoggerFacade
 

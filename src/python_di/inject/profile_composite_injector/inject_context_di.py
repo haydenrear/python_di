@@ -5,13 +5,12 @@ import typing
 
 import injector
 
-import python_util.reflection.reflection_utils
 from python_di.env.base_env_properties import DEFAULT_PROFILE
 from python_di.inject.injector_provider import InjectionContextInjector
 from python_di.inject.profile_composite_injector.composite_injector import profile_scope
 from python_di.inject.context_builder.inject_ctx import inject_context_di
 from python_util.logger.logger import LoggerFacade
-
+from python_util.reflection.reflection_utils import is_empty_inspect, is_optional_ty, get_all_fn_param_types
 
 class InjectionType(enum.Enum):
     Property = enum.auto()
@@ -56,7 +55,7 @@ def retrieve_descriptor(value: typing.Union[typing.Type, str],
         if scope_decorator is None:
             scope_decorator = injector.singleton
         return ctx.get_interface(value, profile=profile, scope=scope_decorator)
-    if injection_descriptor.skip_if_optional and 'Optional' in str(value):
+    if injection_descriptor.skip_if_optional and is_optional_ty(value):
         return None
     if injection_descriptor.injection_ty == InjectionType.Property:
         assert value == str or value == typing.Optional[str]
@@ -86,12 +85,13 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
     :return:
     """
     def wrapper(fn):
+        @functools.wraps(fn)
         def inject_proxy(*args, **kwargs):
             inject_proxy.wrapped_fn = fn
             args_to_call = {}
             profile_found, scope_decorator_found, config_type = _retrieve_scope_data(args, kwargs, fn)
 
-            for i, k_v in enumerate(python_util.reflection.reflection_utils.get_all_fn_param_types(fn).items()):
+            for i, k_v in enumerate(get_all_fn_param_types(fn).items()):
                 fn_arg_key = k_v[0]
                 ty_default_tuple = k_v[1]
                 ty_value_reflected = ty_default_tuple[0]
@@ -100,7 +100,7 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
                     args_to_call[fn_arg_key] = args[i]
                 elif fn_arg_key in kwargs.keys() and kwargs[fn_arg_key] is not None:
                     args_to_call[fn_arg_key] = kwargs[fn_arg_key]
-                elif ty_value_reflected is not None and 'inspect._empty' not in str(ty_value_reflected):
+                elif ty_value_reflected is not None and not is_empty_inspect(ty_value_reflected):
                     args_to_call[fn_arg_key] = retrieve_descriptor(ty_value_reflected, fn_arg_key, default_value,
                                                                    scope_decorator_found, profile_found,
                                                                    descr[fn_arg_key]
@@ -126,7 +126,7 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
             if config_type is None:
                 from drools_py.configs.config import ConfigType
                 if any([ConfigType.__name__ in str(v) for k, v
-                        in python_util.reflection.reflection_utils.get_all_fn_param_types(fn).items()]):
+                        in get_all_fn_param_types(fn).items()]):
                     config_type = _config_type()
                     profile_scope_created = profile_scope
 

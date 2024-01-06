@@ -55,6 +55,7 @@ def configuration(priority: Optional[int] = None, profile: Optional[str] = None)
                     ) for b_1 in lazy_beans.descriptors()
                 ]
                 bean_component_factory.extend(lazy_bean_component_factory)
+
                 self._inject_types = bean_component_factory
 
             @property

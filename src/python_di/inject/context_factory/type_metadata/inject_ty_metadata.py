@@ -121,11 +121,21 @@ class BeanComponentFactory(ComponentFactoryInjectTypeMetadata):
 
 class LifecycleInjectTypeMetadata(InjectTypeMetadata, CallableFactory):
 
-    def __init__(self, ty_to_inject: typing.Type[T], underlying: typing.Type, profile: typing.Union[str, list[str]],
-                 priority: int, scope: injector.ScopeDecorator, dependencies: dict[str, ...],
-                 bindings: list[typing.Type], lifecycle: LifeCycleHook, lifecycle_type: FnTy, to_call: typing.Callable,
+    def __init__(self,
+                 ty_to_inject: typing.Type[T],
+                 underlying: typing.Type,
+                 profile: typing.Union[str, list[str]],
+                 injection_profile: str,
+                 priority: int,
+                 scope: injector.ScopeDecorator,
+                 dependencies: dict[str, ...],
+                 bindings: list[typing.Type],
+                 lifecycle: LifeCycleHook,
+                 lifecycle_type: FnTy,
+                 to_call: typing.Callable,
                  args_callable: typing.Callable[[], dict[str, ...]] = None):
         super().__init__(ty_to_inject, underlying, profile, priority, scope, dependencies, bindings)
+        self.injection_profile = injection_profile
         self.args_callable = args_callable
         self._to_call = to_call
         self.lifecycle_type = lifecycle_type
@@ -140,7 +150,7 @@ class LifecycleInjectTypeMetadata(InjectTypeMetadata, CallableFactory):
             return [self]
         else:
             return [
-                LifecycleInjectTypeMetadata(self.ty_to_inject, self.underlying, p, self.priority,
+                LifecycleInjectTypeMetadata(self.ty_to_inject, self.underlying, p, self.injection_profile, self.priority,
                                             self.scope, self.dependencies, self.bindings,
                                             self.lifecycle, self.lifecycle_type, self._to_call,
                                             self.args_callable)

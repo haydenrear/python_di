@@ -146,6 +146,7 @@ class LifecycleFactory(CallableFactory, ContextFactory, HasFnArgs, abc.ABC):
         return [
             LifecycleInjectTypeMetadata(self.cls_self_method,
                                         self.underlying,
+                                        self.lifecycle_metadata.profile,
                                         self.lifecycle_metadata.injectable_profile,
                                         self.lifecycle_metadata.injectable_priority,
                                         self.lifecycle_metadata.scope_decorator,

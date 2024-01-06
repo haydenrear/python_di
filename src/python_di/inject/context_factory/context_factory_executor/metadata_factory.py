@@ -19,9 +19,11 @@ class LifeCycleMetadataFactory(MetadataFactory):
     def __init__(self,
                  life_cycle_hook: LifeCycleHook,
                  life_cycle_type: FnTy,
+                 profile: Optional[str] = None,
                  injectable_profile: Optional[str] = None,
                  injectable_priority: Optional[int] = None,
                  scope_decorator: Optional[injector.ScopeDecorator] = None):
         MetadataFactory.__init__(self, injectable_profile, injectable_priority, scope_decorator)
+        self.profile = profile
         self.life_cycle_type = life_cycle_type
         self.life_cycle_hook = life_cycle_hook

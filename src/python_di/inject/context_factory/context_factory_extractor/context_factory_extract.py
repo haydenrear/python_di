@@ -41,7 +41,7 @@ class ContextFactoryExtract(ContextFactoryExtract):
 
 class InjectableFactoryExtract(ContextFactoryExtract):
     def extract_context_factory(self, value: ...) -> list[ContextFactory]:
-        return value.context_factory_provider().context_factory
+        return value.context_factory_provider.context_factory
 
     def matches(self, value: ...) -> bool:
         return hasattr(value, ContextFactoryIdentifiers.injectable_context_factory.name)

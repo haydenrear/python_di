@@ -1,4 +1,5 @@
 import dataclasses
+import functools
 import typing
 from typing import Optional
 
@@ -33,6 +34,7 @@ def bean(profile: typing.Union[str, list[str], None] = None,
     def bean_wrap(fn):
         fn, wrapped = get_wrapped_fn(fn)
 
+        @functools.wraps(fn)
         def wrapper(*args, **kwargs):
             return fn(*args, **kwargs)
 
@@ -50,6 +52,7 @@ def bean(profile: typing.Union[str, list[str], None] = None,
 def lazy(fn):
     fn, wrapped = get_wrapped_fn(fn)
 
+    @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         return fn(*args, **kwargs)
 
