@@ -68,7 +68,7 @@ def component(bind_to: list[type] = None,
 
                     for p in config_profile:
                         self_factory_scope = get_create_self_factory_scope(is_bean)
-                        LoggerFacade.info(f"Found bean self factory for {config_profile} and {cls}.")
+                        LoggerFacade.debug(f"Found bean self factory for {config_profile} and {cls}.")
                         factory = ComponentSelfFactory(cls, underlying, p, bean_priority, self_factory_scope, wrapped,
                                                        bean_bindings, self_bean_factory)
                         component_self_factories.append(factory)

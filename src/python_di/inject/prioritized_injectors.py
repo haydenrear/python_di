@@ -201,7 +201,7 @@ class InjectorsPrioritized:
     def register_component_multibinding(self, concrete_ty: typing.Type[T],
                                         bind_to: typing.Callable, scope: injector.ScopeDecorator,
                                         profile: Profile):
-        LoggerFacade.info(f"Registering component binding for profile {profile}.")
+        LoggerFacade.debug(f"Registering component binding {concrete_ty} for profile {profile}.")
         if isinstance(scope, injector.ScopeDecorator):
             scope = scope.scope
         self._assert_singleton(concrete_ty, [], scope)
@@ -210,7 +210,7 @@ class InjectorsPrioritized:
     @synchronized_lock_striping(profile_locks, lock_arg_arg_name='profile')
     def register_component_binding(self, concrete_ty: typing.Type[T], mod: list[type],
                                    bind_to: injector.Provider[T], scope, profile: Profile):
-        LoggerFacade.info(f"Registering component binding for profile {profile}.")
+        LoggerFacade.debug(f"Registering component binding {concrete_ty} for profile {profile}.")
         if isinstance(scope, injector.ScopeDecorator):
             scope = scope.scope
         self._assert_singleton(concrete_ty, mod, scope)
@@ -356,7 +356,6 @@ class InjectorsPrioritized:
                     if b != concrete:
                         injector_found.binder.bind(b, concrete_value if concrete_value is not None else concrete,
                                                    scope=scope)
-        LoggerFacade.info(f"Registering {concrete} as multibindable")
 
     def _retrieve_injectors_having(self, ty: typing.Type[T]) -> dict[Profile, CompositeInjector]:
         return dict(filter(lambda k_v: ty in k_v[1], self.injectors.items()))

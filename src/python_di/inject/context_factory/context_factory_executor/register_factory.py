@@ -47,23 +47,13 @@ def retrieve_factory(lifecycle_factory: CallableFactory,
     do_inject = True
     v = lifecycle_factory.to_call
 
-    profile = metadata_factory.injectable_profile if metadata_factory is not None else None
+    items, profile = _deconstruct_inject_metadata(lifecycle_factory, metadata_factory, v)
 
-    if profile is None and isinstance(lifecycle_factory, InjectTypeMetadata):
-        profile = lifecycle_factory.profile
-
-    if hasattr(v, DiUtilConstants.wrapped.name):
-        items = getattr(v, DiUtilConstants.wrapped.name)
-    else:
-        if isinstance(lifecycle_factory, HasFnArgs):
-            items = lifecycle_factory.fn_args
-        else:
-            items = {}
     for key, val in items.items():
         if key == 'self' or key == 'args' or key == 'kwargs' or key == 'cls':
             continue
         try:
-            LoggerFacade.info(f"Retrieving bean: {val} for bean factory: {v} and profile {profile}.")
+            LoggerFacade.debug(f"Retrieving bean: {val} for bean factory: {v} and profile {profile}.")
             from python_di.env.env_properties import DEFAULT_PROFILE
             from python_di.inject.profile_composite_injector.composite_injector import profile_scope
             found = ctx.get_interface(val, profile,
@@ -83,6 +73,20 @@ def retrieve_factory(lifecycle_factory: CallableFactory,
     return do_inject, to_construct
 
 
+def _deconstruct_inject_metadata(lifecycle_factory, metadata_factory, v):
+    profile = metadata_factory.injectable_profile if metadata_factory is not None else None
+    if profile is None and isinstance(lifecycle_factory, InjectTypeMetadata):
+        profile = lifecycle_factory.profile
+    if hasattr(v, DiUtilConstants.wrapped.name):
+        items = getattr(v, DiUtilConstants.wrapped.name)
+    else:
+        if isinstance(lifecycle_factory, HasFnArgs):
+            items = lifecycle_factory.fn_args
+        else:
+            items = {}
+    return items, profile
+
+
 def register_prototype_component_factory(component_factory_data: PrototypeComponentFactory,
                                          ctx: InjectionContextInjector):
     LoggerFacade.info(f"Registering {component_factory_data.ty_to_inject} as prototype scope.")
@@ -97,6 +101,13 @@ def do_lifecycle_hook(c: LifecycleInjectTypeMetadata,
     to_call_value = c.to_call
     if c.lifecycle_type == FnTy.self_method:
         created_bean = ctx.get_interface(c.ty_to_inject, c.profile, c.scope)
+        if created_bean is None:
+            for b in c.bindings:
+                created_bean = ctx.get_interface(b, c.profile, c.scope)
+                if created_bean is not None:
+                    break
+
+        LoggerFacade.info(f"In lifecycle hook for {c.ty_to_inject} and {created_bean} is the new created bean.")
         args_to_inject = _get_args_to_inject(c, created_bean)
         to_call_value(**args_to_inject)
     elif c.lifecycle_type == FnTy.class_method:
@@ -198,6 +209,7 @@ def register_configuration_properties(config_factory: ConfigurationPropertiesInj
         config_prop_created = config_prop_created_other
 
     if config_prop_created is None:
+        LoggerFacade.info(f"Registering {c} from {config_factory}")
         if hasattr(underlying, DiUtilConstants.fallback.name):
             ctx.register_config_properties(c, underlying.fallback, bindings=[underlying])
         else:

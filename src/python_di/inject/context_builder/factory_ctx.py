@@ -44,9 +44,7 @@ class FactoryCtx(injector.Module):
         return [ConfigurationPropertiesContextFactoriesEditor, MergedProfileFactoriesEditor,
                 MergedInjectionContextFactoriesEditor, MergedComponentContextFactoriesEditor,
                 MergedConfigurationContextFactoriesEditor, PrototypeContextFactoriesEditor,
-                MultibindContextFactoryEditor,
-                # LifecycleContextFactoriesEditor
-                ]
+                MultibindContextFactoryEditor, LifecycleContextFactoriesEditor]
 
     def _context_factory_extractors(self):
         return [

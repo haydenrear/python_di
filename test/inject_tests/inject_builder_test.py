@@ -20,9 +20,11 @@ from test_contexts.test_component_scan.component_scan_referenced_package.other_c
     OtherComponentReferencedFromPackage
 from test_contexts.test_profiles_component_scan.component_scan_referenced_package.component_referenced import \
     ProfileComponentReferencedFromPackage
+from test_contexts.test_profiles_component_scan.component_scan_referenced_package.config_prop import \
+    TestEnableConfigProps, ConfigProp
 from test_contexts.test_profiles_component_scan.component_scan_referenced_package.configuration_referenced import \
     OtherProfileComponentFromConfiguration, OtherProfileComponentFromConfigurationNoDeps, \
-    OtherComponentFromConfigurationNoDeps, OtherDifferentProfileComponentFromConfigurationNoDeps
+    OtherComponentFromConfigurationNoDeps, OtherDifferentProfileComponentFromConfigurationNoDeps, HasLifecycle2
 from test_contexts.test_profiles_component_scan.component_scan_referenced_package.lifecycle_referenced import \
     HasLifecycle
 from test_contexts.test_profiles_component_scan.component_scan_referenced_package.multibindable_component_ref import \
@@ -155,8 +157,6 @@ class InjectorBuilder(unittest.TestCase):
                                'test_profiles_component_scan')
         inject_ctx.build_context({to_scan}, os.path.dirname(os.path.dirname(__file__)))
         lifecycle_value: HasLifecycle = inject_ctx.ctx.get_interface(HasLifecycle)
-        lifecycle_value_validation: HasLifecycle = inject_ctx.ctx.get_interface(HasLifecycle)
-        lifecycle_value_main: HasLifecycle = inject_ctx.ctx.get_interface(HasLifecycle)
 
         assert 'post_construct' in lifecycle_value.to_test.keys()
         assert 'test_autowire' in lifecycle_value.to_test.keys()
@@ -164,6 +164,20 @@ class InjectorBuilder(unittest.TestCase):
 
         assert lifecycle_value.to_test['test_autowire'].component_ref.name == 'test'
         assert lifecycle_value.to_test['validation_autowire'].component_ref.name == 'validation'
+
+        lifecycle_value: HasLifecycle2 = inject_ctx.ctx.get_interface(HasLifecycle2)
+
+        assert 'post_construct' in lifecycle_value.to_test.keys()
+        assert 'test_autowire' in lifecycle_value.to_test.keys()
+        assert 'validation_autowire' in lifecycle_value.to_test.keys()
+
+        assert lifecycle_value.to_test['test_autowire'].component_ref.name == 'test'
+        assert lifecycle_value.to_test['validation_autowire'].component_ref.name == 'validation'
+
+        config_prop: ConfigProp = inject_ctx.ctx.get_interface(ConfigProp)
+        assert config_prop.value == 'hello'
+        assert config_prop.test_value == 'hello there'
+
 
     def test_multibind(self):
 
@@ -198,3 +212,4 @@ class InjectorBuilder(unittest.TestCase):
         inject_ctx.build_context({to_scan}, os.path.dirname(os.path.dirname(__file__)))
         c: CircularDepFour = inject_ctx.ctx.get_interface(CircularDepFour)
         assert c is not None
+

@@ -26,3 +26,5 @@ class HasLifecycle:
     @autowire(injectable_profile='validation')
     def set_validation_value(self, to_set: OtherProfileComponentFromConfiguration):
         self.to_test['validation_autowire'] = to_set
+
+

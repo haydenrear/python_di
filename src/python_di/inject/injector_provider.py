@@ -121,7 +121,9 @@ class InjectionContextInjector:
                 self.register_component_value(base_type, prop, injector.singleton)
             LoggerFacade.info(f"Initialized {type_to_register} config property.")
         else:
-            LoggerFacade.warn(f"Failed to initialize: {type_to_register}.")
+            prefix_name_found = type_to_register.prefix_name if hasattr(type_to_register, 'prefix_name') else None
+            raise ValueError(f"Failed to initialize test properties {type_to_register} with fallback {fallback} "
+                             f"and prefix {prefix_name_found}.")
         return prop
 
     def register_config_property_values(self, property_values: ConfigPropsT,

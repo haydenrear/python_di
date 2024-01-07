@@ -55,7 +55,7 @@ class ProfileProperties(ConfigurationProperties):
             return profile
         else:
             profile = Profile.new_profile(str(uuid.uuid4()), priority)
-            LoggerFacade.warn(f"Could not find profile with priority {priority}. Created new profile: {profile}.")
+            LoggerFacade.info(f"Created new profile: {profile}.")
             self[profile.profile_name] = profile
             return profile
 

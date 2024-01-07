@@ -102,10 +102,10 @@ class ComponentScanner:
             if id_value is not None:
                 node_scanned: list[ProgramNode] = node_scanned
                 next_config = self._import_module(args, decorator_id, id_value, module_scanned, node_scanned)
-                LoggerFacade.info(f"Imported {next_config}")
+                LoggerFacade.debug(f"Imported {next_config}")
                 configs.extend(next_config)
             else:
-                LoggerFacade.error(f"Could not parse module: {id_value}.")
+                LoggerFacade.error(f"Could not parse module: {id_value} from {module_scanned} and {node_scanned}.")
 
         return configs
 

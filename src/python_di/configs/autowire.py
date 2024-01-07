@@ -110,10 +110,10 @@ def injectable(profile: Optional[typing.Union[Profile, str]] = None,
 
             @property
             def context_factory(self) -> list[typing.Union[PostConstructFactory, AutowireFactory, PreConstructFactory]]:
-                if not self.did_already_register_factories():
-                    return self._context_factory
-                else:
-                    return []
+                if not self.did_register.is_set():
+                    if not self.did_already_register_factories():
+                        return self._context_factory
+                return []
 
             @property
             def post_construct_factory(self) -> list[PostConstructFactory]:

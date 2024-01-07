@@ -9,7 +9,6 @@ class ConfigurationPropsMarker:
     pass
 
 
-@inject_context()
 def configuration_properties(prefix_name: Optional[str] = None,
                              fallback: Optional[str] = None):
 

@@ -328,9 +328,12 @@ def get_module(mod):
     try:
         LoggerFacade.debug(f"Importing {mod}.")
         imported_module = importlib.import_module(mod)
-        return imported_module.__file__, imported_module.__dict__
+        if hasattr(imported_module, '__file__') and hasattr(imported_module, '__dict__'):
+            return imported_module.__file__, imported_module.__dict__
+        else:
+            return None, None
     except Exception as e:
-        LoggerFacade.error(f"Could not import module: {mod}, with error: {e}.")
+        LoggerFacade.debug(f"Could not import module: {mod}, with error: {e}.")
         return None, None
 
 

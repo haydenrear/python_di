@@ -46,7 +46,8 @@ class MultibindContextFactoryEditor(ContextFactoriesEditor):
             for bound_id, bound_value in bound_dict.items():
                 b: InjectTypeMetadata = next(iter(bound_value))
                 s = b.scope
-                assert all([s == b_item.scope for b_item in bound_value])
+                has_same_scope = all([s == b_item.scope or b_item.scope or s is None is None for b_item in bound_value])
+                assert has_same_scope
                 next_multibind = MultibindTypeMetadata(typing.List[bound_id], profile, s, bound_value)
                 v.append(next_multibind)
             new_inject_tys.append(MultibindContextFactory(v))
