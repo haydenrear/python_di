@@ -12,7 +12,7 @@ def bind_multi_bind(multi_bind: typing.List[typing.Type[T]], binder: injector.Bi
                     multi_bind_name: typing.Type[list[T]], scope=injector.singleton):
     for to_bind in multi_bind:
         if to_bind not in binder._bindings.keys():
-            binder.bind(to_bind, to_bind, scope=injector.singleton)
+            binder.bind(to_bind, to_bind, scope=scope)
     if multi_bind_name not in binder._bindings.keys():
         binder.multibind(multi_bind_name, curry_multibind(multi_bind, scope), scope=scope)
 

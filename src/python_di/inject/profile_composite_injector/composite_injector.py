@@ -26,7 +26,7 @@ class CompositeInjector(injector.Injector):
     def __init__(
             self,
             modules: Union[injector._InstallableModuleType, Iterable[injector._InstallableModuleType]] = None,
-            auto_bind: bool = True,
+            auto_bind: bool = False,
             parent: injector.Injector = None,
             scope: typing.Optional[CompositeScope] = None,
             profile: typing.Union[Profile, None, ProfileScope] = None,

@@ -54,6 +54,7 @@ def retrieve_descriptor(value: typing.Union[typing.Type, str],
     if injection_descriptor is None:
         if scope_decorator is None:
             scope_decorator = injector.singleton
+        LoggerFacade.info(f"Retrieving {value} with profile {profile}.")
         return ctx.get_interface(value, profile=profile, scope=scope_decorator)
     if injection_descriptor.skip_if_optional and is_optional_ty(value):
         return None
@@ -62,6 +63,7 @@ def retrieve_descriptor(value: typing.Union[typing.Type, str],
         assert key is not None
         if injection_descriptor.get_profile() is not None:
             profile = injection_descriptor.get_profile()
+        LoggerFacade.info(f"Retrieving {key} with profile {profile}.")
         return ctx.get_property_with_default(key, default_value, profile)
     else:
         assert injection_descriptor.injection_ty == InjectionType.Dependency
@@ -69,15 +71,18 @@ def retrieve_descriptor(value: typing.Union[typing.Type, str],
             profile = injection_descriptor.get_profile()
         if injection_descriptor.get_scope() is not None:
             scope_decorator = injection_descriptor.get_scope()
+        LoggerFacade.info(f"Retrieving {value} with profile {profile}.")
         return ctx.get_interface(value, profile=profile, scope=scope_decorator)
 
 
 def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
                 scope_decorator: injector.ScopeDecorator = None,
-                profile: str = None):
+                profile: str = None,
+                config_type=None):
     """
     Wrap the function that needs values from the context. If the first argument in the decorated function is of
     type ConfigType, then the injected arguments will use this profile to retrieve the dependencies.
+    :param config_type:
     :param profile:
     :param scope_decorator:
     :param descr:
@@ -87,15 +92,12 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
     def wrapper(fn):
         @functools.wraps(fn)
         def inject_proxy(*args, **kwargs):
-            inject_proxy.wrapped_fn = fn
-            args_to_call = {}
-            profile_found, scope_decorator_found, config_type = _retrieve_scope_data(args, kwargs, fn)
-
+            if config_type is not None and profile is not None and config_type.name.lower() != profile.lower():
+                raise ValueError(f"Both {config_type} and {profile} were provided to autowire fn for {fn}, "
+                                 f"using {config_type} profile.")
+            args_to_call, profile_found, scope_decorator_found = _deconstruct_profile_args_data(args, kwargs)
             for i, k_v in enumerate(get_all_fn_param_types(fn).items()):
-                fn_arg_key = k_v[0]
-                ty_default_tuple = k_v[1]
-                ty_value_reflected = ty_default_tuple[0]
-                default_value = ty_default_tuple[1]
+                default_value, fn_arg_key, ty_value_reflected = _deconstruct_fn_args_values(k_v)
                 if i < len(args) and args[i] is not None:
                     args_to_call[fn_arg_key] = args[i]
                 elif fn_arg_key in kwargs.keys() and kwargs[fn_arg_key] is not None:
@@ -107,7 +109,7 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
                                                                    if descr is not None and fn_arg_key in descr.keys()
                                                                    else None)
                 elif default_value is None:
-                    LoggerFacade.error("Found autowire fn with arg that has no default value, no value provided, and "
+                    LoggerFacade.debug("Found autowire fn with arg that has no default value, no value provided, and "
                                        f"no type to inject from when autowiring for {fn}.")
             try:
                 return fn(**args_to_call)
@@ -115,45 +117,69 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
                 LoggerFacade.error(f"Error: {e}")
                 raise e
 
+        def _deconstruct_fn_args_values(k_v):
+            fn_arg_key = k_v[0]
+            ty_default_tuple = k_v[1]
+            ty_value_reflected = ty_default_tuple[0]
+            default_value = ty_default_tuple[1]
+            return default_value, fn_arg_key, ty_value_reflected
+
+        def _deconstruct_profile_args_data(args, kwargs):
+            inject_proxy.wrapped_fn = fn
+            args_to_call = {}
+            profile_found, scope_decorator_found, config_type_found = _retrieve_scope_data(args, kwargs, config_type)
+            LoggerFacade.debug(f"{profile_found} is profile found in autowire_fn.")
+            return args_to_call, profile_found, scope_decorator_found
+
         @inject_context_di()
-        def _config_type(ctx: typing.Optional[InjectionContextInjector] = None):
+        def _get_injectable_config_type(ctx: typing.Optional[InjectionContextInjector] = None):
             from drools_py.configs.config import ConfigType
             return ctx.get_interface(ConfigType)
 
-        def _retrieve_scope_data(args, kwargs, fn) -> (str, injector.ScopeDecorator, ...):
-            config_type, profile_scope_created = _get_profile_data(args, kwargs)
+        def _retrieve_scope_data(args, kwargs, config_type_) -> (str, injector.ScopeDecorator, ...):
+            config_type_created, profile_scope_created = _get_profile_data(
+                args, kwargs, _create_get_config_ty(config_type_)
+            )
+            return (_create_get_profile_found(config_type_created),
+                    _create_get_scope_decorator(profile_scope_created),
+                    config_type_created)
 
-            if config_type is None:
-                from drools_py.configs.config import ConfigType
-                if any([ConfigType.__name__ in str(v) for k, v
-                        in get_all_fn_param_types(fn).items()]):
-                    config_type = _config_type()
-                    profile_scope_created = profile_scope
+        def _create_get_profile_found(config_type_created):
+            if config_type_created is not None:
+                profile_found = config_type_created.value.lower()
+            else:
+                profile_found = profile
+            return profile_found
 
+        def _create_get_scope_decorator(profile_scope_created):
             if profile_scope_created is not None:
                 scope_decorator_found = profile_scope_created
             else:
                 scope_decorator_found = scope_decorator
+            return scope_decorator_found
 
-            if config_type is not None:
-                profile_found = config_type.value.lower()
+        def _create_get_config_ty(config_type):
+            if config_type is None:
+                from drools_py.configs.config import ConfigType
+                config_type_created = _get_injectable_config_type()
             else:
-                profile_found = profile
-            return profile_found, scope_decorator_found, config_type
+                config_type_created = config_type
+            return config_type_created
 
         return inject_proxy
 
-    def _get_profile_data(args, kwargs) -> (object, injector.ScopeDecorator):
-        config_type = None
+    def _get_profile_data(args, kwargs, config_type) -> (object, injector.ScopeDecorator):
         from drools_py.configs.config import ConfigType
-        for a in args:
-            if isinstance(a, ConfigType):
-                config_type = a
-        for a in kwargs.values():
-            if isinstance(a, ConfigType):
-                config_type = a
+        config_type_found = config_type
+        if config_type is None:
+            for a in args:
+                if isinstance(a, ConfigType):
+                    config_type_found = a
+            for a in kwargs.values():
+                if isinstance(a, ConfigType):
+                    config_type_found = a
 
-        return config_type, profile_scope if config_type is not None else None
+        return config_type_found, profile_scope if config_type is not None else None
 
     return wrapper
 

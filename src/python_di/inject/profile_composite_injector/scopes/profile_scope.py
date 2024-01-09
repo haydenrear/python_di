@@ -28,6 +28,7 @@ class ProfileScope(injector.Scope):
                 assert not isinstance(provider, injector.Provider)
                 instance_provider = injector.InstanceProvider(provider)
             except Exception as e:
+                LoggerFacade.debug(f"Error in profile scope: {e}")
                 if isinstance(e, AssertionError):
                     LoggerFacade.error(f"Found assertion error: {e}")
                     raise e
@@ -40,10 +41,13 @@ class ProfileScope(injector.Scope):
                 else:
                     LoggerFacade.error(f"Could not retrieve unsatisfied requirement: {e}. Unknown provider type "
                                        f"when trying to get from composite: {type(provider).__name__}")
+                if key not in self._context.keys():
+                    instance_provider = injector.InstanceProvider(provider.get(self.injector))
+                else:
+                    instance_provider = self._context[key]
+            if key not in self._context.keys():
+                self._context[key] = instance_provider
 
-                instance_provider = injector.InstanceProvider(provider.get(self.injector))
-
-            self._context[key] = instance_provider
             return self._context[key]
 
     def _try_fix_bind_issue(self, provider):
@@ -51,7 +55,18 @@ class ProfileScope(injector.Scope):
         from python_di.inject.profile_composite_injector.scopes.composite_scope import CompositeScope
         retrieved_composite_scope = self.injector.get(CompositeScope, scope=injector.singleton)
         for binding_key, binding_ty in bindings_created.items():
-            self._get_register_binding_dep_recursive(binding_ty, retrieved_composite_scope)
+            if binding_ty not in self._context.keys() and binding_ty not in self.injector.binder.bindings.keys():
+                LoggerFacade.debug(f"Searching for {binding_ty} in profile {self.profile.profile_name}.")
+                if binding_ty not in self._context.keys() and binding_ty not in retrieved_composite_scope._context.keys():
+                    self._get_register_binding_dep_recursive(binding_ty, retrieved_composite_scope)
+                elif binding_ty not in self._context.keys():
+                    LoggerFacade.debug(f"Retrieving {binding_ty} from composite scope.")
+                    self._context[binding_ty] = retrieved_composite_scope._context[binding_ty]
+                    from python_di.inject.profile_composite_injector.composite_injector import composite_scope
+                    self.injector.binder.bind(binding_ty, self._context[binding_ty], composite_scope)
+                    LoggerFacade.debug(f"Set {binding_ty} from composite scope in profile scope {self.profile.profile_name}.")
+            else:
+                LoggerFacade.debug(f"{self.profile.profile_name} contained {binding_ty} already.")
 
     def _get_register_binding_dep_recursive(self, binding_ty, retrieved_composite_scope):
         """
@@ -63,29 +78,41 @@ class ProfileScope(injector.Scope):
         """
         is_valid_dep = self._is_valid_dep(binding_ty)
         if is_valid_dep:
+            from python_di.inject.binder_utils import is_singleton_composite, is_profile_scope, is_no_scope
+            from python_di.inject.profile_composite_injector.composite_injector import composite_scope
+
+            if binding_ty in self.injector.binder.bindings.keys():
+                if is_no_scope(self.injector.binder.bindings[binding_ty].scope):
+                    del self.injector.binder.bindings[binding_ty]
             if binding_ty not in self.injector.binder.bindings.keys() and is_valid_dep:
-                self._context[binding_ty] = retrieved_composite_scope.get(binding_ty,
-                                                                          injector.ClassProvider(binding_ty))
+                LoggerFacade.debug(f"Retrieving {binding_ty} from composite scope.")
+                self._do_bind_add_context(binding_ty, retrieved_composite_scope, injector.ClassProvider(binding_ty), composite_scope)
             elif binding_ty not in self._context.keys():
                 # to prohibit infinite recursion, as the composite scope will inevitably ask this profile scope again.
-                from python_di.inject.binder_utils import is_singleton_composite, is_profile_scope, is_no_scope
                 # TODO: prohibit from creating no_scope binding that keeps it from searching through the other scopes.
                 binding_found = self.injector.binder.get_binding(binding_ty)[0]
                 if is_no_scope(binding_found.scope):
                     LoggerFacade.warn(f"Found no scope {binding_ty} in ProfileScope. Deleting it now.")
+                    # removing this for the potential of circular dependency.
                     del self.injector.binder.bindings[binding_ty]
                     self._get_register_binding_dep_recursive(binding_ty, retrieved_composite_scope)
                 else:
                     if is_singleton_composite(binding_found.scope):
-                        # removing this for the potential of circular dependency.
                         retrieved_composite_scope.register_binding_idempotently(binding_ty, binding_found.provider)
-                        self._context[binding_ty] = retrieved_composite_scope.get(binding_ty, binding_found.provider)
-                        self.injector.binder.bindings[binding_ty] = binding_found
+                        LoggerFacade.debug(f"Retrieving {binding_ty} from composite scope.")
+                        self._do_bind_add_context(binding_ty, retrieved_composite_scope,
+                                                  retrieved_composite_scope.get(binding_ty, binding_found.provider),
+                                                  composite_scope)
                     else:
                         self.get(binding_ty, binding_found.provider)
 
         else:
             LoggerFacade.info(f"Skipped {binding_ty} as dependency.")
+
+    def _do_bind_add_context(self, binding_ty, retrieved_composite_scope, provider, scope):
+        self._context[binding_ty] = retrieved_composite_scope.get(binding_ty, provider)
+        self.injector.binder.bind(binding_ty, self._context[binding_ty], scope)
+        LoggerFacade.debug(f"Set {binding_ty} from composite scope in profile scope {self.profile.profile_name}.")
 
     def __contains__(self, item: Type[T]):
         return item in self._context.keys()
