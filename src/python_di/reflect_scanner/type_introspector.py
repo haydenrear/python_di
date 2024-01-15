@@ -276,6 +276,8 @@ class GenericClassDefParser(ClassDefIntrospectParser):
             return [IntrospectedGeneric(name=name, gen_types=[ty[0], ty[1]])]
         elif 'Union' in inner:
             return [IntrospectedGeneric(name=name, gen_types=[t for t in ty])]
+        elif 'Tuple' in inner:
+            return [IntrospectedGeneric(name=name, gen_types=[t for t in ty])]
         else:
             assert len(ty) == 0, \
                 f"Unsupported generic type for {name}."

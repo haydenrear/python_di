@@ -111,6 +111,10 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
                 elif default_value is None:
                     LoggerFacade.debug("Found autowire fn with arg that has no default value, no value provided, and "
                                        f"no type to inject from when autowiring for {fn}.")
+                    args_to_call[fn_arg_key] = None
+                if fn_arg_key not in args_to_call.keys():
+                    args_to_call[fn_arg_key] = None
+
             try:
                 return fn(**args_to_call)
             except Exception as e:

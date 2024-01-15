@@ -36,4 +36,4 @@ def _boot(cls,
         root_dir_introspected = os.path.dirname(os.path.dirname(package_root_directory))
         LoggerFacade.warn(f"No root directory provided for boot application. "
                           f"Using {root_dir_introspected}")
-        _build_ctx(package_root_directory.__file__, root_dir_introspected, )
+        _build_ctx(package_root_directory, root_dir_introspected, )

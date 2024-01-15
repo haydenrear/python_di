@@ -4,7 +4,7 @@ env_factories:
       - factory: src.python_di.inject.context_builder.factory_ctx.FactoryCtx
         lazy: False
       - factory: src.python_di.inject.reflectable_ctx.ReflectableCtx
-        lazy: True
+        lazy: False
 scanner:
   src_file: '/Users/hayde/IdeaProjects/drools/python_di/src/python_di/__init__.py'
   num_up: 2
