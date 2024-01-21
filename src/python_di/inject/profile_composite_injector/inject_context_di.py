@@ -102,12 +102,18 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
                     args_to_call[fn_arg_key] = args[i]
                 elif fn_arg_key in kwargs.keys() and kwargs[fn_arg_key] is not None:
                     args_to_call[fn_arg_key] = kwargs[fn_arg_key]
-                elif ty_value_reflected is not None and not is_empty_inspect(ty_value_reflected):
-                    args_to_call[fn_arg_key] = retrieve_descriptor(ty_value_reflected, fn_arg_key, default_value,
-                                                                   scope_decorator_found, profile_found,
-                                                                   descr[fn_arg_key]
-                                                                   if descr is not None and fn_arg_key in descr.keys()
-                                                                   else None)
+                elif (ty_value_reflected is not None and not is_empty_inspect(ty_value_reflected)
+                      and not is_optional_ty(ty_value_reflected)):
+                    try:
+                        args_to_call[fn_arg_key] = retrieve_descriptor(ty_value_reflected, fn_arg_key, default_value,
+                                                                       scope_decorator_found, profile_found,
+                                                                       descr[fn_arg_key]
+                                                                       if descr is not None and fn_arg_key in descr.keys()
+                                                                       else None)
+                    except Exception as e:
+                        LoggerFacade.error(f"Error when attempting to get {fn_arg_key}: {ty_value_reflected} "
+                                           f"for {kwargs} and {args}")
+                        raise e
                 elif default_value is None:
                     LoggerFacade.debug("Found autowire fn with arg that has no default value, no value provided, and "
                                        f"no type to inject from when autowiring for {fn}.")
@@ -118,7 +124,7 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
             try:
                 return fn(**args_to_call)
             except Exception as e:
-                LoggerFacade.error(f"Error: {e}")
+                LoggerFacade.error(f"Error: {e} inside of inject_context_di for {kwargs} and {args}.")
                 raise e
 
         def _deconstruct_fn_args_values(k_v):

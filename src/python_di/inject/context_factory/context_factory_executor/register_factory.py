@@ -1,4 +1,5 @@
 import typing
+from types import TracebackType
 from typing import Optional
 
 import injector as injector
@@ -65,7 +66,8 @@ def retrieve_factory(lifecycle_factory: CallableFactory,
             raise e
         except Exception as e:
             LoggerFacade.error(f"Found error: {e}")
-            LoggerFacade.warn(f"Failed to initialize test configuration {v} from getting {val}: {e}.")
+            LoggerFacade.warn(f"Failed to initialize test configuration {v} from getting {val}: {e}, "
+                              f"{e.__traceback__}.")
             to_construct[key] = None
             do_inject = False
             break
