@@ -271,7 +271,7 @@ class InjectionContextInjector:
                     profile, scope_decorator: injector.ScopeDecorator = None,
                     **kwargs) -> Optional[T]:
         type_not_contained = type_value not in injector_value.binder._bindings.keys()
-        if isinstance(scope_decorator, PrototypeScopeDecorator):
+        if InjectionContextInjector.is_prototype(scope_decorator, type_value):
             if not hasattr(type_value, 'prototype_bean_factory_ty'):
                 LoggerFacade.error(f"Attempted to retrieve {type_value} with prototype scope but the reference to the"
                                    f"bean's factory did not exist.")
@@ -294,6 +294,13 @@ class InjectionContextInjector:
                 elif scope_decorator is None:
                     scope_decorator = injector.singleton.scope
                 return injector_value.get(type_value, scope_decorator)
+
+    @classmethod
+    def is_prototype(cls, scope_decorator, type_value):
+        from python_di.inject.context_factory.context_factory import PrototypeComponentFactory
+        return (isinstance(scope_decorator, PrototypeScopeDecorator)
+                or (hasattr(type_value, 'context_factory')
+                    and any([isinstance(t, PrototypeComponentFactory) for t in type_value.context_factory])))
 
     @classmethod
     def retrieve_profile_name(cls, profile):
