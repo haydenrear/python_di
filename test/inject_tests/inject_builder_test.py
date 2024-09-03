@@ -35,7 +35,29 @@ from test_framework.assertions.assert_all import assert_all
 
 
 
+
 class InjectorBuilder(unittest.TestCase):
+    def test_multibind(self):
+
+        inject_ctx = InjectionContext()
+        _ = inject_ctx.initialize_env()
+        to_scan = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'test_contexts',
+                               'test_profiles_component_scan')
+        inject_ctx.build_context({to_scan}, os.path.dirname(os.path.dirname(__file__)))
+
+        created = inject_ctx.ctx.get_interface(typing.List[MultibindableInterface])
+
+        assert_all_values = assert_all()
+
+        assert_all_values(len(created) == 2, f"Created had wrong number of values, was {created}")
+        assert_all_values(all([isinstance(c, MultibindableInterface) for c in created]),
+                          "Multbind interface was not correct values.")
+        assert_all_values(not all([not isinstance(c, MultibindableImpl) for c in created]),
+                          "Multbind did not have expected values")
+        asserted = assert_all_values(not all([not isinstance(c, MultibindableImpl2) for c in created]),
+                                     "Multibind did not have expected values")
+
+        asserted()
 
     def test_inject_builder(self):
         inject_ctx = InjectionContext()
@@ -177,29 +199,6 @@ class InjectorBuilder(unittest.TestCase):
         config_prop: ConfigProp = inject_ctx.ctx.get_interface(ConfigProp)
         assert config_prop.value == 'hello'
         assert config_prop.test_value == 'hello there'
-
-
-    def test_multibind(self):
-
-        inject_ctx = InjectionContext()
-        _ = inject_ctx.initialize_env()
-        to_scan = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'test_contexts',
-                               'test_profiles_component_scan')
-        inject_ctx.build_context({to_scan}, os.path.dirname(os.path.dirname(__file__)))
-
-        created = inject_ctx.ctx.get_interface(typing.List[MultibindableInterface])
-
-        assert_all_values = assert_all()
-
-        assert_all_values(len(created) == 2, f"Created had wrong number of values, was {created}")
-        assert_all_values(all([isinstance(c, MultibindableInterface) for c in created]),
-                          "Multbind interface was not correct values.")
-        assert_all_values(not all([not isinstance(c, MultibindableImpl) for c in created]),
-                          "Multbind did not have expected values")
-        asserted = assert_all_values(not all([not isinstance(c, MultibindableImpl2) for c in created]),
-                                     "Multibind did not have expected values")
-
-        asserted()
 
     def test_circular_dep(self):
         inject_ctx = InjectionContext()

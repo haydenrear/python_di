@@ -290,7 +290,7 @@ class InjectionContextInjector:
                 binding, _ = injector_value.binder.get_binding(type_value)
                 if scope_decorator is not None and binding.scope != scope_decorator:
                     LoggerFacade.error(f"Scope requested was {scope_decorator}, but scope contained in {profile} was "
-                                       f"{binding.scope}.")
+                                       f"{binding.scope} for {binding}.")
                 elif scope_decorator is None:
                     scope_decorator = injector.singleton.scope
                 return injector_value.get(type_value, scope_decorator)

@@ -12,6 +12,7 @@ from python_di.inject.context_builder.inject_ctx import inject_context_di
 from python_util.logger.logger import LoggerFacade
 from python_util.reflection.reflection_utils import is_empty_inspect, is_optional_ty, get_all_fn_param_types
 
+
 class InjectionType(enum.Enum):
     Property = enum.auto()
     Dependency = enum.auto()
@@ -89,6 +90,7 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
     :param ctx:
     :return:
     """
+
     def wrapper(fn):
         @functools.wraps(fn)
         def inject_proxy(*args, **kwargs):
@@ -192,4 +194,3 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
         return config_type_found, profile_scope if config_type is not None else None
 
     return wrapper
-
