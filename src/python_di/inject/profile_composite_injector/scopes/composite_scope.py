@@ -65,7 +65,7 @@ class CompositeScope(injector.SingletonScope):
         bindings_created = injector.get_bindings(fn_bound)
         for binding_key, binding_ty in bindings_created.items():
             for p in self._iter_profile_scope(all_profile_scopes):
-                if binding_ty in self.injector.binder.bindings.keys():
+                if binding_ty in self.injector.binder._bindings.keys():
                     if binding_ty in self._context.keys():
                         continue
                     else:
@@ -80,10 +80,10 @@ class CompositeScope(injector.SingletonScope):
                             else:
                                 LoggerFacade.info(f"Deleted no scope binding for {binding_ty} found in composite "
                                                   f"scope.")
-                                del self.injector.binder.bindings[binding_ty]
+                                del self.injector.binder._bindings[binding_ty]
                         except:
-                            del self.injector.binder.bindings[binding_ty]
-                if binding_ty in p.injector.binder.bindings.keys():
+                            del self.injector.binder._bindings[binding_ty]
+                if binding_ty in p.injector.binder._bindings.keys():
                     try:
                         binding_found = p.injector.binder.get_binding(binding_ty)[0]
                         provider: injector.Provider = binding_found.provider
@@ -115,11 +115,11 @@ class CompositeScope(injector.SingletonScope):
     def register_binding_idempotently(self, key, provider):
         from python_di.inject.profile_composite_injector.composite_injector import composite_scope
         if key in self._context.keys():
-            assert key in self.injector.binder.bindings.keys(),\
+            assert key in self.injector.binder._bindings.keys(),\
                 f"{key} was in context but was not registered in bindings."
             ctx = self._context[key]
             return ctx
-        if key not in self.injector.binder.bindings.keys():
+        if key not in self.injector.binder._bindings.keys():
             if is_multibindable(key):
                 self.injector.binder.multibind(key, provider, composite_scope)
             else:
