@@ -55,7 +55,7 @@ class ProfileScope(injector.Scope):
         from python_di.inject.profile_composite_injector.scopes.composite_scope import CompositeScope
         retrieved_composite_scope = self.injector.get(CompositeScope, scope=injector.singleton)
         for binding_key, binding_ty in bindings_created.items():
-            if binding_ty not in self._context.keys() and binding_ty not in self.injector.binder.bindings.keys():
+            if binding_ty not in self._context.keys() and binding_ty not in self.injector.binder._bindings.keys():
                 LoggerFacade.debug(f"Searching for {binding_ty} in profile {self.profile.profile_name}.")
                 if binding_ty not in self._context.keys() and binding_ty not in retrieved_composite_scope._context.keys():
                     self._get_register_binding_dep_recursive(binding_ty, retrieved_composite_scope)
@@ -81,10 +81,10 @@ class ProfileScope(injector.Scope):
             from python_di.inject.binder_utils import is_singleton_composite, is_profile_scope, is_no_scope
             from python_di.inject.profile_composite_injector.composite_injector import composite_scope
 
-            if binding_ty in self.injector.binder.bindings.keys():
-                if is_no_scope(self.injector.binder.bindings[binding_ty].scope):
-                    del self.injector.binder.bindings[binding_ty]
-            if binding_ty not in self.injector.binder.bindings.keys() and is_valid_dep:
+            if binding_ty in self.injector.binder._bindings.keys():
+                if is_no_scope(self.injector.binder._bindings[binding_ty].scope):
+                    del self.injector.binder._bindings[binding_ty]
+            if binding_ty not in self.injector.binder._bindings.keys() and is_valid_dep:
                 LoggerFacade.debug(f"Retrieving {binding_ty} from composite scope.")
                 self._do_bind_add_context(binding_ty, retrieved_composite_scope, injector.ClassProvider(binding_ty), composite_scope)
             elif binding_ty not in self._context.keys():
@@ -94,7 +94,7 @@ class ProfileScope(injector.Scope):
                 if is_no_scope(binding_found.scope):
                     LoggerFacade.warn(f"Found no scope {binding_ty} in ProfileScope. Deleting it now.")
                     # removing this for the potential of circular dependency.
-                    del self.injector.binder.bindings[binding_ty]
+                    del self.injector.binder._bindings[binding_ty]
                     self._get_register_binding_dep_recursive(binding_ty, retrieved_composite_scope)
                 else:
                     if is_singleton_composite(binding_found.scope):

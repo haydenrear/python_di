@@ -7,8 +7,8 @@ from typing import Optional
 import injector
 
 from python_di.env.base_module_config_props import ConfigurationProperties
-from python_util.logger.logger import LoggerFacade
 from python_di.properties.configuration_properties_decorator import configuration_properties
+from python_util.logger.logger import LoggerFacade
 
 injector_lock = threading.RLock()
 
@@ -73,6 +73,10 @@ class ProfileProperties(ConfigurationProperties):
             self.active_profiles[profile_name] = Profile.new_profile(profile_name, priority)
             return self.active_profiles[profile_name]
 
+    def profiles_sorted_by_priority(self) -> list[...]:
+        return [
+            v for k, v in sorted(self.active_profiles.items(), key=lambda k_v: k_v[1], reverse=True)
+        ]
 
     @injector.synchronized(injector_lock)
     def create_get_profile_name_priority(self, priority: Optional[int] = None,

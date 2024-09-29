@@ -46,8 +46,7 @@ class InjectionContextInjector:
         if not self.did_initialize_env.is_set():
             environment = get_env_module(self.dot_env)
             self.environment: YamlPropertiesFilesBasedEnvironment = environment
-            profile_props = self.environment.register_config_property_type(
-                ProfileProperties,
+            profile_props = self.environment.register_profiles_config(
                 ProfileProperties.fallback if hasattr(ProfileProperties, 'fallback') else None
             )
             self.injectors_dictionary = InjectorsPrioritized(profile_props)

@@ -138,6 +138,11 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
             return out
 
     def retrieve_profile(self, profile_name: str) -> Optional[Profile]:
+        if self.profiles:
+            for p_name, p in self.profiles.active_profiles.items():
+                if profile_name == p_name:
+                    return p
+
         for p in self.config_properties.keys():
             if p.profile_name == profile_name:
                 return p
@@ -190,7 +195,7 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
             if os.path.isfile(os.path.join(join, file)) and os.path.basename(file).endswith('.yml') \
                     or os.path.basename(file).endswith('.yaml'):
                 yml_files.append(os.path.join(join, file))
-        return yml_files
+        return [i for i in  sorted(yml_files, key=lambda x: len(x))]
 
     def load_prop_recursive(self, properties: dict, props, prev):
         if isinstance(props, dict):
@@ -215,7 +220,7 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
                             if self._factories is None or len(self._factories.factories) == 0:
                                 self._factories = next_factories
                             else:
-                                for k, v in next_factories.factories:
+                                for k, v in next_factories.factories.items():
                                     if k not in self._factories.factories.keys():
                                         self._factories.factories[k] = v
                                     else:
@@ -229,11 +234,12 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
     @staticmethod
     def get_profile_from_yml(yml_name: str):
         basename = os.path.basename(yml_name)
-        if 'application.yml' in basename and 'application.yml' != yml_name:
-            splitted = basename.split('application.yml')
-            if len(splitted) == 2 and len(splitted[0]) > 0:
-                YamlPropertiesFilesBasedEnvironment.log_profile_name(splitted[0], yml_name)
-                return splitted[0]
+        if 'application-' in basename and not basename.endswith('application.yml'):
+            splitted = basename.split('application-')
+            if len(splitted) == 2:
+                s = splitted[1].split('.yml')
+                YamlPropertiesFilesBasedEnvironment.log_profile_name(s[0], yml_name)
+                return s[0]
         YamlPropertiesFilesBasedEnvironment.log_profile_name(DEFAULT_PROFILE, yml_name)
         return DEFAULT_PROFILE
 
@@ -245,11 +251,65 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
     def calculate_precedence() -> Priority:
         return 0
 
-    def load_props_for_tys(self, ty: type[ConfigurationProperties],
+    def load_profiles_from_env(self):
+        if 'spring.profiles.active' in os.environ.keys():
+            return self.parse_profiles_from_profile_env(os.environ['spring.profiles.active'])
+        if "SPRING_PROFILES_ACTIVE" in os.environ.keys():
+            return self.parse_profiles_from_profile_env(os.environ['SPRING_PROFILES_ACTIVE'])
+
+    @staticmethod
+    def parse_profiles_from_profile_env(p):
+        p = [p.strip() for p in p.split(',')]
+        if len(p) != 0:
+            default = list(reversed(p))[0]
+            return ProfileProperties(**{
+                "active_profiles": {profile_name: Profile(**{"profile_name": p, "priority": i})
+                                    for i, profile_name in enumerate(p)},
+                "default_profile": Profile(**{"profile_name": default, "priority": len(p) - 1})
+            })
+
+    def get_sorted_yml_files(self):
+        sorted_profiles: list[Profile] = self.profiles.profiles_sorted_by_priority()
+        sorted_yml_files = []
+        for s_value in sorted_profiles:
+            for y in self.yml_files:
+                if s_value.profile_name == 'main_profile':
+                    if y.endswith('application.yml') or y.endswith('application-main.yml'):
+                        sorted_yml_files.append(y)
+                        break
+                elif y.endswith(f'{s_value.profile_name}.yml'):
+                    sorted_yml_files.append(y)
+                    break
+
+        for y in self.yml_files:
+            if y not in sorted_yml_files:
+                sorted_yml_files.append(y)
+
+        return sorted_yml_files
+
+    def load_props_for_tys(self,
+                           ty: type[ConfigurationProperties],
                            fallback: Optional[str] = None) -> ConfigurationProperties:
         self.assert_prefixname(ty)
+        yml_files = self.get_sorted_yml_files()
+        return self._load_props_for_tys(yml_files, ty, fallback)
+
+    def load_profiles(self, fallback: Optional[str] = None) -> ConfigurationProperties:
+        from_env = self.load_profiles_from_env()
+        if from_env is not None:
+            return from_env
+        else:
+            ty = ProfileProperties
+            self.assert_prefixname(ty)
+            return self._load_props_for_tys(self.yml_files, ProfileProperties,
+                                            fallback)
+
+    def _load_props_for_tys(self,
+                           yml_files,
+                           ty: type[ConfigurationProperties],
+                           fallback: Optional[str] = None) -> typing.Optional[ConfigurationProperties]:
         prefix_name = ty.prefix_name
-        for yml_file in self.yml_files:
+        for yml_file in yml_files:
             profile_name = self.get_profile_from_yml(yml_file)
             profile = self.retrieve_profile(profile_name)
             if profile_name not in self.config_properties:
@@ -323,6 +383,10 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
     def register_config_property_type(self, prop: type[ConfigurationProperties],
                                       fallback: Optional[str] = None) -> ConfigurationProperties:
         out = self.load_props_for_tys(prop, fallback)
+        return out
+
+    def register_profiles_config(self, fallback: Optional[str] = None) -> ConfigurationProperties:
+        out = self.load_profiles(fallback)
         return out
 
     def get_property(self, key, profile: Optional[str] = None) -> Optional[object]:
