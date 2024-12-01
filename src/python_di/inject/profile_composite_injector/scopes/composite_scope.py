@@ -24,7 +24,6 @@ class CompositeScope(injector.SingletonScope):
 
     @synchronized(lock)
     def get(self, key: Type[T], provider: Provider[T] = None, profile: Profile = None) -> Provider[T]:
-        from python_di.inject.profile_composite_injector.composite_injector import composite_scope
         if key in self._context.keys():
             return self._context[key]
         else:
