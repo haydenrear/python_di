@@ -1,3 +1,5 @@
+import dataclasses
+
 from python_di.env.base_module_config_props import BaseModuleProps
 
 

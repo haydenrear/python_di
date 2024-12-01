@@ -3,7 +3,7 @@ import typing
 from typing import Type
 
 import injector
-from injector import Provider, synchronized, T, InstanceProvider
+from injector import Provider, synchronized, T, InstanceProvider, UnsatisfiedRequirement
 
 from python_di.env.profile import Profile
 from python_di.inject.profile_composite_injector.multibind_util import is_multibindable
@@ -33,26 +33,32 @@ class CompositeScope(injector.SingletonScope):
             # order and add to the CompositeScope _context and/or the top-level injector.
             try:
                 provided = injector.InstanceProvider(provider.get(self.injector))
+            except (TypeError, UnsatisfiedRequirement) as e:
+                provided = self.do_get_provided(e, key, provider)
             except Exception as e:
-                LoggerFacade.debug(f"Found error: {e}")
-                all_profile_scopes: typing.List[ProfileScope] \
-                    = self.injector.get(typing.List[ProfileScope], scope=composite_scope)
-                if isinstance(provider, injector.ClassProvider):
-                    cls_found = provider._cls
-                    self._try_fix_dep_bindings(all_profile_scopes, cls_found.__init__)
-                elif isinstance(provider, injector.CallableProvider):
-                    callable_found = provider._callable
-                    self._try_fix_dep_bindings(all_profile_scopes, callable_found)
-                else:
-                    LoggerFacade.error(f"Error getting {key}. Could not retrieve from profile because was provider "
-                                       f"of type {provider.__class__.__name__}")
-                    raise e
-
-                provided = injector.InstanceProvider(provider.get(self.injector))
+                raise e
 
             self.register_binding_idempotently(key, provided)
             self._context[key] = provided
             return provided
+
+    def do_get_provided(self, e, key, provider):
+        from python_di.inject.profile_composite_injector.composite_injector import composite_scope
+        LoggerFacade.debug(f"Found error: {e}")
+        all_profile_scopes: typing.List[ProfileScope] \
+            = self.injector.get(typing.List[ProfileScope], scope=composite_scope)
+        if isinstance(provider, injector.ClassProvider):
+            cls_found = provider._cls
+            self._try_fix_dep_bindings(all_profile_scopes, cls_found.__init__)
+        elif isinstance(provider, injector.CallableProvider):
+            callable_found = provider._callable
+            self._try_fix_dep_bindings(all_profile_scopes, callable_found)
+        else:
+            LoggerFacade.error(f"Error getting {key}. Could not retrieve from profile because was provider "
+                               f"of type {provider.__class__.__name__}")
+            raise e
+        provided = injector.InstanceProvider(provider.get(self.injector))
+        return provided
 
     def _try_fix_dep_bindings(self, all_profile_scopes, fn_bound):
         """

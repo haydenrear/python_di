@@ -1,3 +1,4 @@
+import dataclasses
 import os
 import threading
 import typing
@@ -106,7 +107,6 @@ class ProfileProperties(ConfigurationProperties):
                 LoggerFacade.info(f"Created new profile {profile.profile_name} with priority {priority}")
                 self.active_profiles[profile.profile_name]  = profile
                 return profile
-
 
 def get_profile_module() -> ProfileProperties:
     from python_di.inject.context_builder.injection_context import InjectionContext

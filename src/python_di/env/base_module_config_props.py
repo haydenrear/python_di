@@ -32,3 +32,4 @@ class ConfigurationProperties(BaseModel, ABC):
 
 class BaseModuleProps(ConfigurationProperties, abc.ABC):
     pass
+
