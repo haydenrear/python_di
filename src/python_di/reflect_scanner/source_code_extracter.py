@@ -18,6 +18,7 @@ def extract_source(node, source_code):
                 return source_code.readlines()
         elif node.node_type == NodeType.IMPORT or node.node_type == NodeType.IMPORT_FROM:
             return node.id_value
+
     # Tokenize the source code and build a mapping between start/end positions and the tokens.
     tokens = list(tokenize.tokenize(BytesIO(source_code.encode('utf-8')).readline))
     token_map = {(token.start, token.end): token.string for token in tokens}
