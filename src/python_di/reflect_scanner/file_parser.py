@@ -65,6 +65,8 @@ class FileParser:
                 mod_node = FileNode(NodeType.MODULE, source_file_path)
                 self.graph.add_node(mod_node)
 
+                # TODO: ANTLR - right here is where the ast can be parsed from antlr
+                #       from any language.
                 for node in ast.iter_child_nodes(tree):
                     self.visit_node(node, source_file_path, mod_node)
 
