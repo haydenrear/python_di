@@ -116,6 +116,7 @@ class ProgramParser:
         self.file_graphs: dict[str, FileParser] = {}
         self.external_file_graphs: dict[str, FileParser] = {}
         self.program_graph = nx.DiGraph()
+        self.macro_expander = []
 
         for program_graph_connector in iter(sorted(self.program_graph_connectors,
                                                    key=lambda x: x.order() if x.order() is not None else 0)):
@@ -125,15 +126,31 @@ class ProgramParser:
         self.src_file_provider = src_file_provider
 
     def do_parse(self):
+        """
+        TODO: data structure to be able to add different types of indexes between different types of nodes, then search these indexes in different ways,
+                expose it as MPC.
+        TODO: 1. Write file as sub-graph with file as a sub-graph symbol on first pass - incrementally parse each file individually
+              2. Write, on the second pass, the connections between the files
+                    i.e. everything a class depends on depends on an import, so really the hyper-graph is between symbol_depend -> import -> file_imported -> source_of_symbol
+                        Note there is some finagling here but this depends on language - imports for example can be implicit in packages, etc - set_file_connections
+                        is language dependent - on the second pass, once all imports exist, then go through the sub-graph and add any import that needs resolving explicitly
+                        according to language.
+              3. Incrementally write the SCIP/LSIF index to the file
+        :return:
+        """
         sources = []
         for file in self.src_file_provider.file_parser():
             self.file_graphs[file] = FileParser(self.ast_providers)
             self.file_graphs[file].parse(file)
             sources.append(file)
+        #   could write intermediary sub-graph with entry to metadata file - link below
+        #   hierarchies of subgraphs obviously resolves adjacency list issue ... naive solution!!!
 
         LoggerFacade.info(f"Parsed program with the following sources:\n\n{sources}.")
 
         for file, file_graph in self.file_graphs.items():
+            # here is where the statements would be connected to imports, and if a type or function in a statement isn't resolvable
+            # in file or current import then connection to new file could be added. This already has all imports added.
             self.set_file_connections(file_graph.graph, self.program_graph, file)
         connector_args = ProgramParserConnectorArgs(self.file_graphs, self.external_file_graphs,
                                                     self.program_graph, self.src_file_provider.base_source())

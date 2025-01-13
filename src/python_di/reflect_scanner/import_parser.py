@@ -6,6 +6,7 @@ from python_di.reflect_scanner.module_graph_models import Import, ImportFrom
 
 class ImportParser(ASTNodeParser):
     """
+    TODO: connect import to each of the things referencing it on second pass
     Adds nodes between the source file and the imports within that source file.
     """
 
