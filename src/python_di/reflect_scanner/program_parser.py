@@ -25,7 +25,7 @@ class InclusionCriteria(abc.ABC):
 class PythonSourceFileInclusionCriteria(InclusionCriteria):
 
     def do_include(self, x) -> bool:
-        return '.py' in x and '.pyc'
+        return '.py' in x and '.pyc' not in x
 
 
 class SourceFileProvider(abc.ABC):
