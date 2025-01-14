@@ -22,17 +22,10 @@ class InclusionCriteria(abc.ABC):
         pass
 
 
-class SourceFileInclusionCriteria(InclusionCriteria):
+class PythonSourceFileInclusionCriteria(InclusionCriteria):
 
     def do_include(self, x) -> bool:
-        return '.py' in x and '.pyc' not in x and ('src/python_di' in x or 'python_di/test' in x)
-
-
-class ModuleNameInclusionCriteria(InclusionCriteria):
-
-    def do_include(self, import_string) -> bool:
-        if 'python_di' in import_string or 'torch' in import_string:
-            return True
+        return '.py' in x and '.pyc'
 
 
 class SourceFileProvider(abc.ABC):
@@ -87,7 +80,7 @@ class PropertyBasedSourceFileProvider(SourceFileProvider):
     @injector.inject
     def __init__(self,
                  scanner_properties: ScannerProperties,
-                 filter_fn: SourceFileInclusionCriteria):
+                 filter_fn: PythonSourceFileInclusionCriteria):
         self.scanner_properties = scanner_properties
         self.filter_fn = filter_fn
 
