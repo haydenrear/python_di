@@ -120,15 +120,13 @@ class ProgramParser:
 
     def do_parse(self):
         """
+        TODO: connect statements to delegate imports and then resolve delegate imports (see parse_statement_node in AggregateStatementParser)
         TODO: data structure to be able to add different types of indexes between different types of nodes, then search these indexes in different ways,
                 expose it as MPC.
         TODO: 1. Write file as sub-graph with file as a sub-graph symbol on first pass - incrementally parse each file individually
-              2. Write, on the second pass, the connections between the files
-                    i.e. everything a class depends on depends on an import, so really the hyper-graph is between symbol_depend -> import -> file_imported -> source_of_symbol
-                        Note there is some finagling here but this depends on language - imports for example can be implicit in packages, etc - set_file_connections
-                        is language dependent - on the second pass, once all imports exist, then go through the sub-graph and add any import that needs resolving explicitly
-                        according to language.
-              3. Incrementally write the SCIP/LSIF index to the file
+              2. Write, on the second pass, the connections between the files - can write each file graph to cache
+              3. Create program graph - resolve delegate imports from statements/other (language dependent) and connect file graphs to program graph incrementally
+              4. Incrementally write the SCIP/LSIF index to the file
         :return:
         """
         sources = []
@@ -141,12 +139,15 @@ class ProgramParser:
 
         LoggerFacade.info(f"Parsed program with the following sources:\n\n{sources}.")
 
+        # Another pass through each of the file graphs, can be parallelized, to resolve and add undefined imports, which is
+        # language dependent
+
         for file, file_graph in self.file_graphs.items():
-            # here is where the statements would be connected to imports, and if a type or function in a statement isn't resolvable
-            # in file or current import then connection to new file could be added. This already has all imports added.
             self.set_file_connections(file_graph.graph, self.program_graph, file)
+
         connector_args = ProgramParserConnectorArgs(self.file_graphs, self.external_file_graphs,
                                                     self.program_graph, self.src_file_provider.base_source())
+
         for program_graph in self.program_graph_connectors:
             program_graph.add_to_program_graph(connector_args)
 
@@ -157,6 +158,13 @@ class ProgramParser:
 
     def set_file_connections(self, file_graph: nx.DiGraph,
                              program_graph: nx.DiGraph, source: str):
+        """
+        Add to the program graph the connections between the files based on the import
+        :param file_graph:
+        :param program_graph:
+        :param source:
+        :return:
+        """
         program_graph.add_node(ProgramNode(NodeType.MODULE, source, source))
         edges_to_add = []
         for node in file_graph.nodes:

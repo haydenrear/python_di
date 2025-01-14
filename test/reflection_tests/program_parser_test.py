@@ -57,8 +57,19 @@ class ModuleScannerTest(unittest.TestCase):
     def test_import(self):
         found = self.get_node_with_node_type(self.parser, "FoundationTokenizerImport", NodeType.CLASS)
         found_edges = self.get_all_edges_for_node(found, self.parser)
-        for (to, from_e)   in found_edges:
-            print()
+        is_valid = False
+        for (to, from_e) in found_edges:
+            if isinstance(from_e, ProgramNode):
+                if from_e.node_type == NodeType.BASE_CLASS:
+                    assert from_e.id_value == "FoundationTokenizer"
+                    for (to_t, from_t) in self.get_all_edges_for_node(from_e, self.parser):
+                        if isinstance(from_t, ProgramNode):
+                            if from_t.node_type == NodeType.IMPORTED_DEPENDENCY:
+                                is_valid = True
+
+        assert is_valid
+
+
 
     def class_base_dependency_same_file(self, program_parser):
         assert self.contains_node(self.parser, 'FoundationTokenizerFactory')

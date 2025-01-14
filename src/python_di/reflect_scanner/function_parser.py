@@ -74,10 +74,9 @@ class FnStatementParser:
         self.stmt_parser = stmt_parser
 
     def parse_stmts(self, fn_node: FileNode, graph: nx.DiGraph, node: ast.FunctionDef):
-        statement_node = self.stmt_parser.parse_statement_node(node.body, fn_node.id_value)
+        statement_node = self.stmt_parser.parse_statement_node(node.body, fn_node.id_value, graph)
         graph.add_node(statement_node)
         graph.add_edge(fn_node, statement_node)
-
 
 
 class FunctionDefParser(ASTNodeParser):
