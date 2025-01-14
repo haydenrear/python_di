@@ -37,12 +37,10 @@ def test_one():
 
 class FileParserTest(unittest.TestCase):
     def test_file_parser(self):
-        parser_providers = [
-            ClassDefParser(),
-            FunctionDefParser(),
-            ImportParser()
-        ]
-        file_parser = FileParser(parser_providers)
+        from python_di.inject.context_builder.injection_context import InjectionContext
+        inject_ctx = InjectionContext()
+        ctx = inject_ctx.initialize_env()
+        file_parser = ctx.get_interface(FileParser)
 
         parsed = file_parser.parse(__file__)
         for graph in parsed.nodes:

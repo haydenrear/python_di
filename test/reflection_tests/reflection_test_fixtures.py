@@ -45,8 +45,10 @@ class FoundationTokenizer(torch.nn.Module, abc.ABC):
 class HuggingfaceTokenizerConfig(FoundationTokenizerConfig):
     pass
 
+
 class HuggingfaceFoundationTokenizerConfig(FoundationTokenizerConfig):
     pass
+
 
 class FoundationTokenizerFactory(ConfigFactory, abc.ABC):
     pass

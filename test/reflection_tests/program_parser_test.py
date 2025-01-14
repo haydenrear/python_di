@@ -17,12 +17,17 @@ from python_di.reflect_scanner.scanner_properties import ScannerProperties
 class ModuleScannerTest(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.scanner_props: ScannerProperties = InjectionContext.get_interface(ScannerProperties)
+        from python_di.inject.context_builder.injection_context import InjectionContext
+        inject_ctx = InjectionContext()
+        ctx = inject_ctx.initialize_env()
+        self.scanner_props: ScannerProperties = ctx.get_interface(ScannerProperties)
         assert self.scanner_props.num_up == 2
 
-        self.parser: ProgramParser = InjectionContext.get_interface(ProgramParser)
+        self.parser: ProgramParser = ctx.get_interface(ProgramParser)
         self.parser.do_parse()
 
+        for n in self.parser.program_graph.nodes:
+            print(n)
         assert self.parser.file_graphs
         assert self.parser.program_graph
         self.torch_file = '/Users/hayde/IdeaProjects/drools/phx/lib/python3.10/site-packages/torch/nn/__init__.py'
@@ -85,7 +90,9 @@ class ModuleScannerTest(unittest.TestCase):
 
     def get_node_with_node_type(self, program_parser, name, node_type):
         for node in program_parser.program_graph.nodes:
-            if node.id_value == name and node.node_type == node_type:
+            value_name = node.id_value == name
+            node_node_type = node.node_type
+            if value_name and node_node_type == node_type:
                 LoggerFacade.debug(f'Found node: {name}: {node.id_value}, {node.source_file}.')
                 return node
 

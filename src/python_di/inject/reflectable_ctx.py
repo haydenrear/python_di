@@ -118,9 +118,9 @@ class ReflectableCtx(injector.Module):
         binder.bind(TupleIntrospecter, TupleIntrospecter, scope=injector.singleton)
         binder.bind(SubscriptIntrospecter, SubscriptIntrospecter, scope=injector.singleton)
         parser_types = {}
-        # for parser_type in ReflectableCtx.parser_types:
-        #     mod = importlib.import_module('python_di.reflect_scanner.statements_parser')
-        #     p_type = mod.__dict__[parser_type]
-        #     parser_types[parser_type] = p_type
+        for parser_type in ReflectableCtx.parser_types:
+            mod = importlib.import_module('python_di.reflect_scanner.statements_parser')
+            p_type = mod.__dict__[parser_type]
+            parser_types[parser_type] = p_type
         bind_multi_bind([p for p in parser_types.values()], binder, typing.List[StatementParser])
         binder.bind(AggregateStatementParser, AggregateStatementParser, scope=injector.singleton)

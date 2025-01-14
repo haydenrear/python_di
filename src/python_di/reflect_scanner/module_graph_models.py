@@ -62,11 +62,15 @@ class ProgramNode(Node):
         self.source_file = source_file
         self._node_type = node_type
 
+    @property
     def node_type(self) -> NodeType:
         return self._node_type
 
     def __hash__(self):
         return hash((self._node_type, self.id_value, self.source_file))
+
+    def __str__(self):
+        return str(self.node_type)
 
 
 class TypeConnectionProgramNode(ProgramNode):
@@ -173,16 +177,28 @@ class StatementType(SerializableEnum):
 
 
 class Statement:
-    def __init__(self, statement_type: StatementType,
+    def __init__(self,
+                 statement_type: StatementType,
                  statement_id: str,
                  lin_no: int,
                  statements: list,
-                 statement_str: typing.Optional[str] = None):
+                 statement_str: typing.Optional[str] = None,
+                 ids: list[str] = None):
+        """
+
+        :param statement_type:
+        :param statement_id:
+        :param lin_no:
+        :param statements:
+        :param statement_str:
+        :param ids: Ids of items in the statement, to connect the statement to the import node or within-file nodes
+        """
         self.statement_str = statement_str
         self.lin_no = lin_no
         self.statements = statements
         self.statement_type = statement_type
         self.statement_id = statement_id
+        self.ids = ids
 
 
 class StatementNode(FileNode):

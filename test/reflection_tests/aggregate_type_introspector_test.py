@@ -9,7 +9,10 @@ from python_di.reflect_scanner.type_introspector import AggregateTypeIntrospecte
 
 class AggregateTypeIntrospecterTest(unittest.TestCase):
     def test_get_type(self):
-        agg = InjectionContext.get_interface(AggregateTypeIntrospecter)
+        from python_di.inject.context_builder.injection_context import InjectionContext
+        inject_ctx = InjectionContext()
+        ctx = inject_ctx.initialize_env()
+        agg = ctx.get_interface(AggregateTypeIntrospecter)
         assert agg
         to_test = os.path.join(os.path.dirname(__file__), 'to_parse_test_file.py')
 
