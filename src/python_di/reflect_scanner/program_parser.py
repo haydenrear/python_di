@@ -235,7 +235,7 @@ def determine_import_type(node: Import | ImportFrom):
     Returns:
         str: A string representing the type of the import statement.
     """
-    num_names = len(node.name) + len(node.as_name)
+    num_names = len(node.name) + (len(node.as_name) if node.as_name else 0)
     if isinstance(node, Import):
         if num_names > 1:
             return ImportType.MultipleImport
