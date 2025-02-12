@@ -19,8 +19,9 @@ injector_lock = threading.RLock()
     fallback=os.path.join(os.path.dirname(__file__), 'fallback_profile_application.yml')
 )
 class ProfileProperties(ConfigurationProperties):
+
     from python_di.env.profile import Profile
-    active_profiles: dict[str, Profile]
+    active_profiles: typing.Dict[str, Profile]
     default_profile: Profile
 
     @injector.synchronized(injector_lock)
