@@ -2,6 +2,7 @@ import abc
 import ast
 import typing
 import injector
+import networkx as nx
 
 from python_di.reflect_scanner.module_graph_models import StatementNode, Statement, StatementType
 
@@ -57,12 +58,38 @@ class AggregateStatementParser(StatementParser):
         for p in self.statement_parsers:
             p.set_aggregate(self)
 
-    def parse_statement_node(self, stmt, id_value) -> StatementNode:
+    def parse_statement_node(self, stmt: typing.Union[ast.stmt, typing.List[ast.stmt]],
+                             id_value: str,
+                             graph: nx.DiGraph = None) -> StatementNode:
+        """
+        Each statement node contains child statements and statement nodes which can reference imports - any statement node
+        that that could reference an import, class, or function has a connection between that node and a delegate node to the import, no matter how deep in the graph,
+        and then can bubble up to the parent node to parse the AST around.
+
+        The connection between the node and the import will not be the import node, but a connecting node, and the adding of this node to the graph will be idempotent
+        and then at the end a connection will be added from this idempotent node to the actual import. This makes it so that you don't have to add the import
+        node if you don't find it, and you can then find nodes that are not linked to imports.
+
+        Then once you've parsed the connections between files, language dependent, added imports that didn't exist, then any dangling can be added, and when dangling
+        are added you're already there so you can try to check for type inference (this is where type inference would need to be).
+
+        Then you will have a quick connection between a symbol and everywhere it's implemented, because you have a map between
+        a symbol and everywhere it's imported, and a map between the places it's imported and directly where it's used. Then there
+        will also be a way to get the contextual AST from where it's used bubbling up to the parent statements or parent function.
+
+        So this is JUST A HASHTABLE
+        :param stmt:
+        :param id_value:
+        :param graph:
+        :return:
+        """
         if not isinstance(stmt, list):
             for parser in self.statement_parsers:
                 if parser.matches(stmt):
                     parsed: Statement = parser.parse_statement(stmt, id_value)
                     return StatementNode(id_value, [parsed])
+
+            return StatementNode(id_value, [])
         else:
             statements = []
             for stmt_ in stmt:

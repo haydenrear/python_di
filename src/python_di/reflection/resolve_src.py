@@ -7,6 +7,10 @@ import importlib.util
 import os
 
 import ast
+import typing
+
+from python_di.reflect_scanner.module_graph_models import ImportFrom, Import
+from python_util.monads.util import flatten_iterable
 
 
 def resolve_import_name(class_name, source_code):
@@ -120,10 +124,18 @@ class ImportResolver:
 
 
     @classmethod
-    def resolve_absolute_import(cls, node, cur_file):
-        module_name = node.names[0].name
+    def resolve_absolute_import(cls, node: typing.Union[ast.Import, ast.ImportFrom], cur_file):
+        if isinstance(node, ast.Import):
+            module_name = node.names[0].name
+            package_name = None
+        elif isinstance(node, ast.ImportFrom):
+            module_name = node.names[0].name
+            package_name = node.module
+        else:
+            raise Exception("Failed.")
         cur_file = os.path.dirname(cur_file)
-        return cls._get_module_path(module_name, cur_file)
+        return cls._get_module_path(module_name, cur_file, package_name)
+
 
     @classmethod
     def resolve_relative_import(cls, node, cur_file):
@@ -132,9 +144,9 @@ class ImportResolver:
         return get_file_dir_from_relative_import(module_name, cur_file)
 
     @classmethod
-    def resolve_multiple_import(cls, node, cur_file):
+    def resolve_multiple_import(cls, node: typing.Union[ast.Import, ast.ImportFrom], cur_file):
         cur_file = os.path.dirname(cur_file)
-        return [cls._get_module_path(name, cur_file) for name in node.name]
+        return [cls._get_module_path(name.name, cur_file, node.module) for name in node.names]
 
     @classmethod
     def resolve_alias_import(cls, node, cur_file):
@@ -166,8 +178,11 @@ class ImportResolver:
                     return node
 
     @classmethod
-    def _get_module_path(cls, module_name, current_dir):
-        module_import = importlib.import_module(module_name)
+    def _get_module_path(cls, module_name, current_dir, package_name = None):
+        if package_name is not None:
+            module_import = importlib.import_module(package_name, module_name)
+        else:
+            module_import = importlib.import_module(module_name)
         if module_import is not None and module_import.__file__ is not None:
             import_file = module_import.__file__
             return import_file

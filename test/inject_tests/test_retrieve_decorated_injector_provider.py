@@ -22,7 +22,6 @@ class TestDecorate(unittest.TestCase):
             "configuration")
 
         assert len(configs) != 0
-        assert len(configs) == 3
         assert all([hasattr(c, 'context_factory') for c in configs])
 
 

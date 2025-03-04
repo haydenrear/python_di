@@ -14,9 +14,8 @@ from python_di.reflect_scanner.function_parser import FunctionDefParser, FnState
 from python_di.reflect_scanner.graph_scanner import DecoratorOfGraphScanner, SubclassesOfGraphScanner, \
     FunctionsOfGraphScanner, ModulesOfGraphScanner, ImportGraphScanner
 from python_di.reflect_scanner.import_parser import ImportParser
-from python_di.reflect_scanner.program_parser import ProgramParser, ModuleNameInclusionCriteria, \
-    PropertyBasedSourceFileProvider, \
-    InclusionCriteria, SourceFileProvider, SourceFileInclusionCriteria
+from python_di.reflect_scanner.program_parser import ProgramParser, PropertyBasedSourceFileProvider, \
+    InclusionCriteria, SourceFileProvider, PythonSourceFileInclusionCriteria
 from python_di.reflect_scanner.program_parser_connector import ClassParserConnector, FunctionArgsParserConnector, \
     ClassFunctionParserConnector, FunctionParserConnector, ProgramParserConnector, DecoratorParserConnector
 from python_di.reflect_scanner.scanner_properties import ScannerProperties
@@ -50,11 +49,11 @@ class ReflectableCtx(injector.Module):
         self.bind_program_parser(binder)
 
     def bind_program_parser(self, binder: Binder):
-        bind_multi_bind([ModuleNameInclusionCriteria], binder, typing.List[InclusionCriteria])
+        bind_multi_bind([PythonSourceFileInclusionCriteria], binder, typing.List[InclusionCriteria])
+        binder.bind(PythonSourceFileInclusionCriteria, PythonSourceFileInclusionCriteria, scope=injector.singleton)
         binder.bind(SourceFileProvider, PropertyBasedSourceFileProvider, scope=injector.singleton)
         binder.bind(ProgramParser, ProgramParser, scope=injector.singleton)
         binder.bind(FileParser, FileParser, scope=injector.noscope)
-        binder.bind(SourceFileInclusionCriteria, SourceFileInclusionCriteria, scope=injector.singleton)
 
         for graph_scanner in self._graph_scanner_tys():
             binder.bind(graph_scanner, graph_scanner, scope=injector.singleton)
@@ -118,9 +117,9 @@ class ReflectableCtx(injector.Module):
         binder.bind(TupleIntrospecter, TupleIntrospecter, scope=injector.singleton)
         binder.bind(SubscriptIntrospecter, SubscriptIntrospecter, scope=injector.singleton)
         parser_types = {}
-        # for parser_type in ReflectableCtx.parser_types:
-        #     mod = importlib.import_module('python_di.reflect_scanner.statements_parser')
-        #     p_type = mod.__dict__[parser_type]
-        #     parser_types[parser_type] = p_type
+        for parser_type in ReflectableCtx.parser_types:
+            mod = importlib.import_module('python_di.reflect_scanner.statements_parser')
+            p_type = mod.__dict__[parser_type]
+            parser_types[parser_type] = p_type
         bind_multi_bind([p for p in parser_types.values()], binder, typing.List[StatementParser])
         binder.bind(AggregateStatementParser, AggregateStatementParser, scope=injector.singleton)

@@ -22,17 +22,10 @@ class InclusionCriteria(abc.ABC):
         pass
 
 
-class SourceFileInclusionCriteria(InclusionCriteria):
+class PythonSourceFileInclusionCriteria(InclusionCriteria):
 
     def do_include(self, x) -> bool:
-        return '.py' in x and '.pyc' not in x and ('src/python_di' in x or 'python_di/test' in x)
-
-
-class ModuleNameInclusionCriteria(InclusionCriteria):
-
-    def do_include(self, import_string) -> bool:
-        if 'python_di' in import_string or 'torch' in import_string:
-            return True
+        return '.py' in x and '.pyc' not in x
 
 
 class SourceFileProvider(abc.ABC):
@@ -87,7 +80,7 @@ class PropertyBasedSourceFileProvider(SourceFileProvider):
     @injector.inject
     def __init__(self,
                  scanner_properties: ScannerProperties,
-                 filter_fn: SourceFileInclusionCriteria):
+                 filter_fn: PythonSourceFileInclusionCriteria):
         self.scanner_properties = scanner_properties
         self.filter_fn = filter_fn
 
@@ -116,6 +109,7 @@ class ProgramParser:
         self.file_graphs: dict[str, FileParser] = {}
         self.external_file_graphs: dict[str, FileParser] = {}
         self.program_graph = nx.DiGraph()
+        self.macro_expander = []
 
         for program_graph_connector in iter(sorted(self.program_graph_connectors,
                                                    key=lambda x: x.order() if x.order() is not None else 0)):
@@ -125,18 +119,35 @@ class ProgramParser:
         self.src_file_provider = src_file_provider
 
     def do_parse(self):
+        """
+        TODO: connect statements to delegate imports and then resolve delegate imports (see parse_statement_node in AggregateStatementParser)
+        TODO: data structure to be able to add different types of indexes between different types of nodes, then search these indexes in different ways,
+                expose it as MPC.
+        TODO: 1. Write file as sub-graph with file as a sub-graph symbol on first pass - incrementally parse each file individually
+              2. Write, on the second pass, the connections between the files - can write each file graph to cache
+              3. Create program graph - resolve delegate imports from statements/other (language dependent) and connect file graphs to program graph incrementally
+              4. Incrementally write the SCIP/LSIF index to the file
+        :return:
+        """
         sources = []
         for file in self.src_file_provider.file_parser():
             self.file_graphs[file] = FileParser(self.ast_providers)
             self.file_graphs[file].parse(file)
             sources.append(file)
+        #   could write intermediary sub-graph with entry to metadata file - link below
+        #   hierarchies of subgraphs obviously resolves adjacency list issue ... naive solution!!!
 
         LoggerFacade.info(f"Parsed program with the following sources:\n\n{sources}.")
 
+        # Another pass through each of the file graphs, can be parallelized, to resolve and add undefined imports, which is
+        # language dependent
+
         for file, file_graph in self.file_graphs.items():
             self.set_file_connections(file_graph.graph, self.program_graph, file)
+
         connector_args = ProgramParserConnectorArgs(self.file_graphs, self.external_file_graphs,
                                                     self.program_graph, self.src_file_provider.base_source())
+
         for program_graph in self.program_graph_connectors:
             program_graph.add_to_program_graph(connector_args)
 
@@ -147,6 +158,13 @@ class ProgramParser:
 
     def set_file_connections(self, file_graph: nx.DiGraph,
                              program_graph: nx.DiGraph, source: str):
+        """
+        Add to the program graph the connections between the files based on the import
+        :param file_graph:
+        :param program_graph:
+        :param source:
+        :return:
+        """
         program_graph.add_node(ProgramNode(NodeType.MODULE, source, source))
         edges_to_add = []
         for node in file_graph.nodes:
@@ -217,7 +235,7 @@ def determine_import_type(node: Import | ImportFrom):
     Returns:
         str: A string representing the type of the import statement.
     """
-    num_names = len(node.name) + len(node.as_name)
+    num_names = len(node.name) + (len(node.as_name) if node.as_name else 0)
     if isinstance(node, Import):
         if num_names > 1:
             return ImportType.MultipleImport
