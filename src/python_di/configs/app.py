@@ -8,7 +8,8 @@ from python_util.logger.logger import LoggerFacade
 
 
 def boot_application(root_dir_cls: typing.Optional[typing.Type] = None,
-                     root_dir_name: typing.Optional[str] = None):
+                     root_dir_name: typing.Optional[str] = None,
+                     profile_name_override = None):
 
     if root_dir_name is None:
         s = inspect.stack()[1].filename
@@ -18,7 +19,7 @@ def boot_application(root_dir_cls: typing.Optional[typing.Type] = None,
     @functools.wraps(boot_application)
     def boot_app_inner(cls):
         inject_ctx = InjectionContext()
-        env = inject_ctx.initialize_env()
+        env = inject_ctx.initialize_env(profile_name_override)
 
         inject_ctx.build_context(parent_sources={root_dir_name}, source_directory=os.path.dirname(root_dir_name))
 

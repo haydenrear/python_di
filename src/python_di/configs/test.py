@@ -19,9 +19,9 @@ def test_booter(scan_root_module: typing.Optional[typing.Type] = None,
             'src')
         if scan_root_module is not None:
             scan_root_directory_created = os.path.dirname(importlib.import_module(scan_root_module.__module__).__file__)
-            _boot(cls, None, package_root_directory, None, scan_root_directory_created)
+            _boot(cls, None, package_root_directory, None, scan_root_directory_created, 'test')
         else:
-            _boot(cls, None, package_root_directory, scan_root_module, scan_root_directory)
+            _boot(cls, None, package_root_directory, scan_root_module, scan_root_directory, 'test')
 
         return cls
 

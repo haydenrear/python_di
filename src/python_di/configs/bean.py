@@ -7,7 +7,7 @@ import injector
 
 from python_di.configs.base_config import DiConfiguration
 from python_di.configs.di_util import get_wrapped_fn
-from python_di.env.base_env_properties import DEFAULT_PROFILE
+from python_di.env.main_profile import DEFAULT_PROFILE
 from python_di.inject.context_factory.base_context_factory import CallableFactory
 from python_di.inject.context_factory.type_metadata.base_ty_metadata import HasFnArgs
 from python_di.inject.context_factory.context_factory_executor.metadata_factory import MetadataFactory

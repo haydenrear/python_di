@@ -81,7 +81,7 @@ def configuration(priority: Optional[int] = None, profile: Optional[str] = None)
         LoggerFacade.info("Registered beans.")
 
     def _retrieve_update_bean_arg(callable_fn, fallback_profile):
-        from python_di.env.base_env_properties import DEFAULT_PROFILE
+        from python_di.env.main_profile import DEFAULT_PROFILE
         bean_arg: BeanArg = callable_fn.is_bean
         profile_found = retrieve_profile_if_exists(bean_arg.profile, profile, fallback_profile)
         if profile_found is None:

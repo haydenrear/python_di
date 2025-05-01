@@ -5,6 +5,7 @@ from typing import Optional
 
 import injector as injector
 
+from python_di.env.base_env_properties import Environment
 from python_di.env.base_module_config_props import ConfigurationProperties
 from python_di.env.init_env import EnvironmentProvider, retrieve_env_profile
 from python_di.env.profile import Profile
@@ -38,7 +39,7 @@ class InjectionContextInjector:
         self.did_initialize_env: asyncio.Event = asyncio.Event()
         self.did_initialize_init_factories: asyncio.Event = asyncio.Event()
 
-    def initialize_env_profiles(self):
+    def initialize_env_profiles(self, profile_name_override = None):
         from python_di.env.init_env import get_env_module
         from python_di.inject.prioritized_injectors import InjectorsPrioritized
         from python_di.env.env_properties import YamlPropertiesFilesBasedEnvironment
@@ -46,9 +47,9 @@ class InjectionContextInjector:
         if not self.did_initialize_env.is_set():
             environment = get_env_module(self.dot_env)
             self.environment: YamlPropertiesFilesBasedEnvironment = environment
-            profile_props = self.environment.register_profiles_config(
-                ProfileProperties.fallback if hasattr(ProfileProperties, 'fallback') else None
-            )
+            profile_props: ProfileProperties = self.environment.register_profiles_config(
+                ProfileProperties.fallback if hasattr(ProfileProperties, 'fallback') else None)
+            profile_props.active_profiles[profile_name_override] = Profile(profile_name=profile_name_override, priority=999999999999)
             self.injectors_dictionary = InjectorsPrioritized(profile_props)
             self.register_component_value([ProfileProperties], profile_props,
                                           profile=YamlPropertiesFilesBasedEnvironment.default_profile(),
@@ -200,8 +201,9 @@ class InjectionContextInjector:
             lazy = True
         else:
             return
-        for profile, factory in self.environment.load_factories(lazy):
-            self.register_injector_from_module(factory, profile.profile_name, profile.priority)
+        for factory in self.environment.load_factories(lazy):
+            default_profile = Environment.default_profile()
+            self.register_injector_from_module(factory, default_profile.profile_name, default_profile.priority)
         if lazy and not self._is_lazy_set():
             self.lazy_set.set()
         elif not lazy and not self.did_initialize_init_factories.is_set():

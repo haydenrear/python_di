@@ -1,11 +1,12 @@
 import dataclasses
 import enum
 import functools
+import inspect
 import typing
 
 import injector
 
-from python_di.env.base_env_properties import DEFAULT_PROFILE
+from python_di.env.main_profile import DEFAULT_PROFILE
 from python_di.inject.injector_provider import InjectionContextInjector
 from python_di.inject.profile_composite_injector.composite_injector import profile_scope
 from python_di.inject.context_builder.inject_ctx import inject_context_di
@@ -56,7 +57,8 @@ def retrieve_descriptor(value: typing.Union[typing.Type, str],
         if scope_decorator is None:
             scope_decorator = injector.singleton
         LoggerFacade.info(f"Retrieving {value} with profile {profile}.")
-        return ctx.get_interface(value, profile=profile, scope=scope_decorator)
+        f = ctx.get_interface(value, profile=profile, scope=scope_decorator)
+        return f
     if injection_descriptor.skip_if_optional and is_optional_ty(value):
         return None
     if injection_descriptor.injection_ty == InjectionType.Property:
@@ -114,7 +116,7 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
                                                                        else None)
                     except Exception as e:
                         LoggerFacade.error(f"Error when attempting to get {fn_arg_key}: {ty_value_reflected} "
-                                           f"for {kwargs} and {args}")
+                                           f"for {kwargs} and {args}: {e}")
                         raise e
                 elif default_value is None:
                     LoggerFacade.debug("Found autowire fn with arg that has no default value, no value provided, and "

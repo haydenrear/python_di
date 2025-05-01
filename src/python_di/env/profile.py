@@ -5,11 +5,11 @@ from python_di.env.base_module_config_props import BaseModuleProps
 
 class Profile(BaseModuleProps):
     profile_name: str
-    priority: int = -100
+    priority: int = 1000000
 
 
     @classmethod
-    def new_profile(cls, profile_name: str, priority: int = -100):
+    def new_profile(cls, profile_name: str, priority: int = 1000000):
         return Profile(**{
             "profile_name": profile_name.lower(),
             "priority": priority

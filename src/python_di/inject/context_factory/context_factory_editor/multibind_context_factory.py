@@ -35,7 +35,7 @@ class MultibindContextFactoryEditor(ContextFactoriesEditor):
                     for profile in inject_ty_metadata.profile:
                         self._add_ty_metadata_to_profile(bound_values, inject_ty_metadata, profile)
                 else:
-                    from python_di.env.base_env_properties import DEFAULT_PROFILE
+                    from python_di.env.main_profile import DEFAULT_PROFILE
                     self._add_ty_metadata_to_profile(bound_values, inject_ty_metadata, DEFAULT_PROFILE)
 
         new_inject_tys: list[MultibindContextFactory] = []

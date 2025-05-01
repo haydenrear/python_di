@@ -26,7 +26,7 @@ class PrototypeScopeDecorator(injector.ScopeDecorator):
     @property
     def profile(self) -> str:
         if self._profile is None:
-            from python_di.env.base_env_properties import DEFAULT_PROFILE
+            from python_di.env.main_profile import DEFAULT_PROFILE
             self._profile = DEFAULT_PROFILE
         return self._profile
 

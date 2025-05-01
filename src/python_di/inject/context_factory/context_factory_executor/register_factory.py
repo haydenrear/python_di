@@ -55,7 +55,7 @@ def retrieve_factory(lifecycle_factory: CallableFactory,
             continue
         try:
             LoggerFacade.debug(f"Retrieving bean: {val} for bean factory: {v} and profile {profile}.")
-            from python_di.env.env_properties import DEFAULT_PROFILE
+            from python_di.env.main_profile import DEFAULT_PROFILE
             from python_di.inject.profile_composite_injector.composite_injector import profile_scope
             found = ctx.get_interface(val, profile,
                                       scope=injector.singleton if profile is None or profile == DEFAULT_PROFILE
@@ -147,7 +147,7 @@ def register_component_factory(component_factory_data: ComponentFactory,
             ctx.register_component(cls, bindings=binding, scope=scope, profile=p)
     elif isinstance(profile, str):
         ctx.register_component(cls, binding, scope, profile)
-        from python_di.env.env_properties import DEFAULT_PROFILE
+        from python_di.env.main_profile import DEFAULT_PROFILE
         if profile != DEFAULT_PROFILE:
             assert scope is not None and scope != injector.singleton
             assert scope == profile_scope

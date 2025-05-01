@@ -1,3 +1,5 @@
+import inspect
+import sys
 import threading
 import typing
 from typing import Type
@@ -33,8 +35,13 @@ class CompositeScope(injector.SingletonScope):
             try:
                 provided = injector.InstanceProvider(provider.get(self.injector))
             except (TypeError, UnsatisfiedRequirement) as e:
-                provided = self.do_get_provided(e, key, provider)
+                try:
+                    provided = self.do_get_provided(e, key, provider)
+                except Exception as next_exc:
+                    LoggerFacade.error(f'Found exc: {next_exc}')
+                    raise next_exc
             except Exception as e:
+                LoggerFacade.error(f"{e}")
                 raise e
 
             self.register_binding_idempotently(key, provided)

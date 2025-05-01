@@ -146,7 +146,7 @@ class InjectionObservationField:
             return self._retrieve_injector_inner()
 
     def _retrieve_injector_inner(self):
-        from python_di.env.base_env_properties import DEFAULT_PROFILE
+        from python_di.env.main_profile import DEFAULT_PROFILE
         if self.profile_scope.profile.profile_name == DEFAULT_PROFILE:
             self.composite_scope.injector = self.collapsed if self.collapsed is not None else self.injectors[0]
             self.composite_scope.injector.composite_created = self.composite_scope

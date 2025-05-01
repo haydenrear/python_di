@@ -8,7 +8,8 @@ from typing import Optional
 import yaml
 
 from python_util.collections.collection_util import collect_multimap
-from python_di.env.base_env_properties import PropertyPrefix, Environment, DEFAULT_PROFILE
+from python_di.env.base_env_properties import PropertyPrefix, Environment
+from python_di.env.main_profile import DEFAULT_PROFILE
 from python_di.env.base_module_config_props import ConfigurationProperties
 from python_di.env.env_factories import Factories, Factory
 from python_di.env.init_env import import_load
@@ -56,7 +57,7 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
 
     @classmethod
     def collect_multimap_partition_by(cls, factory: (str, Factory)):
-        return Profile.new_profile(factory[0], factory[1].priority)
+        return factory[0]
 
     def register_config_property_values(self, property_values: ConfigPropsT,
                                         profile: Optional[str] = None,
@@ -114,22 +115,15 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
 
     def load_factories(self, lazy):
         if self.factories is not None and self.factories.factories is not None:
-            factories_collected = collect_multimap([
-                (profile, factory) for profile, factories
-                in self.factories.factories.items()
-                for factory in factories
-
-            ], self.collect_multimap_partition_by)
-            for profile, factories_in_profile in factories_collected.items():
-                for factory in self.factories.factories[profile.profile_name]:
-                    if lazy and factory.lazy:
-                        loaded = self._do_initialize(factory)
-                        if loaded is not None:
-                            yield profile, loaded
-                    elif not lazy and not factory.lazy:
-                        loaded = self._do_initialize(factory)
-                        if loaded is not None:
-                            yield profile, loaded
+            for factory in self.factories.factories:
+                if lazy and factory.lazy:
+                    loaded = self._do_initialize(factory)
+                    if loaded is not None:
+                        yield loaded
+                elif not lazy and not factory.lazy:
+                    loaded = self._do_initialize(factory)
+                    if loaded is not None:
+                        yield loaded
 
     def _do_initialize(self, factory: Factory):
         if not self._factories_locks[factory.factory].is_set():
@@ -220,14 +214,14 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
                             if self._factories is None or len(self._factories.factories) == 0:
                                 self._factories = next_factories
                             else:
-                                for k, v in next_factories.factories.items():
-                                    if k not in self._factories.factories.keys():
-                                        self._factories.factories[k] = v
+                                for v in next_factories.factories:
+                                    if v.factory not in self._factories.factories:
+                                        self._factories.factories.append(v)
                                     else:
-                                        LoggerFacade.error(f"Found factory with key {k} that already existed.")
-                            for f in [s.factory for f in next_factories.factories.values() for s in f]:
-                                if f not in self._factories_locks.keys():
-                                    self._factories_locks[f] = asyncio.Event()
+                                        LoggerFacade.error(f"Found factory with key {v.factory} that already existed.")
+                            for f in [s for s in next_factories.factories]:
+                                if f.factory not in self._factories_locks.keys():
+                                    self._factories_locks[f.factory] = asyncio.Event()
                         except Exception as e:
                             LoggerFacade.error(f"Error loading factories from {yml_file} with error {e}.")
 
@@ -256,6 +250,7 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
             return self.parse_profiles_from_profile_env(os.environ['spring.profiles.active'])
         if "SPRING_PROFILES_ACTIVE" in os.environ.keys():
             return self.parse_profiles_from_profile_env(os.environ['SPRING_PROFILES_ACTIVE'])
+
 
     @staticmethod
     def parse_profiles_from_profile_env(p):
@@ -301,8 +296,21 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
         else:
             ty = ProfileProperties
             self.assert_prefixname(ty)
-            return self._load_props_for_tys(self.yml_files, ProfileProperties,
-                                            fallback)
+            return self._load_profile_properties(self.yml_files, fallback)
+
+    def _load_profile_properties(self,
+                                 yml_files,
+                                 fallback: Optional[str] = None) -> typing.Optional[ConfigurationProperties]:
+        for yml_file in yml_files:
+            load_props = self._do_register_add_profile(yml_file)
+            if load_props is not None:
+                return load_props
+        if fallback is not None and os.path.exists(fallback):
+            LoggerFacade.warn(f"No properties provided for {ProfileProperties}. Using fallback: {fallback}.")
+            return self._do_register_add_profile(fallback)
+        else:
+            LoggerFacade.error(f"No properties provided for {ProfileProperties}. Tried using fallback {fallback} "
+                               f"but fallback did not exist.")
 
     def _load_props_for_tys(self,
                            yml_files,
@@ -336,6 +344,24 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
         from python_di.configs.constants import DiUtilConstants
         assert hasattr(ty, DiUtilConstants.prefix_name.name), (f"Configuration property {ty} was supposed to have "
                                                                f"prefix name.")
+
+    def _do_register_add_profile(self, yml_file: str) -> Optional:
+        with open(f"{yml_file}", "r") as props:
+            props = yaml.safe_load(props)
+            for prop, prop_value in props.items():
+                if prop == 'profiles':
+                    if yml_file not in self.properties_loaders.keys():
+                        self.properties_loaders[yml_file] = PropertyLoader(yml_file)
+                    by_ty = self.properties_loaders[yml_file].load_property_by_ty(ProfileProperties, 'profiles')
+                    assert by_ty is not None, (f"profiles had property that was None for {ProfileProperties} and {yml_file}. "
+                                               f"There may be a property missing.")
+                    LoggerFacade.info(f"Successfully loaded props: profiles from {yml_file}.")
+                    self.config_properties[Environment.default_profile()] = PropertySource(Environment.default_profile())
+                    self.config_properties[Environment.default_profile()].add_config_property('profiles', by_ty)
+                    self.registered_properties.add('profiles')
+                    return by_ty
+
+
 
     def _do_register_add_props(self, ty: type[ConfigurationProperties], yml_file: str,
                                prefix_name: str, profile_name: Profile) -> Optional:

@@ -8,6 +8,7 @@ from typing import Optional
 import injector
 from typing_extensions import ClassVar
 
+from python_di.env import main_profile
 from python_di.env.base_module_config_props import ConfigurationProperties
 from python_di.properties.configuration_properties_decorator import configuration_properties
 from python_util.logger.logger import LoggerFacade
@@ -16,6 +17,7 @@ injector_lock = threading.RLock()
 
 
 from python_di.env.profile import Profile
+
 @configuration_properties(
     prefix_name='profiles',
     fallback=os.path.join(os.path.dirname(__file__), 'fallback_profile_application.yml')
@@ -23,7 +25,7 @@ from python_di.env.profile import Profile
 class ProfileProperties(ConfigurationProperties):
 
     active_profiles: typing.Dict[str, Profile]
-    default_profile: Profile
+    default_profile: Profile =main_profile.get_default_profile()
 
     @injector.synchronized(injector_lock)
     def __setitem__(self, key, value):
