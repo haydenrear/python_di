@@ -15,8 +15,7 @@ def test_booter(scan_root_module: typing.Optional[typing.Type] = None,
     @functools.wraps(test_booter)
     def boot_test_inner(cls):
         package_root_directory = python_util.io_utils.file_dirs.get_dir(
-            importlib.import_module(cls.__module__).__file__,
-            'src')
+            importlib.import_module(cls.__module__).__file__,'src')
         if scan_root_module is not None:
             scan_root_directory_created = os.path.dirname(importlib.import_module(scan_root_module.__module__).__file__)
             _boot(cls, None, package_root_directory, None, scan_root_directory_created, 'test')
@@ -27,6 +26,19 @@ def test_booter(scan_root_module: typing.Optional[typing.Type] = None,
 
     return boot_test_inner
 
+def tst_config(scan_root_directory: str,
+               scan_root_module: typing.Optional[typing.Type] = None):
+    @functools.wraps(test_booter)
+    def boot_test_inner(cls):
+        if scan_root_module is not None:
+            scan_root_directory_created = os.path.dirname(importlib.import_module(scan_root_module.__module__).__file__)
+            _boot(cls, None, scan_root_directory, None, scan_root_directory_created, 'test')
+        else:
+            _boot(cls, None, scan_root_directory, scan_root_module, scan_root_directory, 'test')
+
+        return cls
+
+    return boot_test_inner
 
 def boot_test(ctx: typing.Type):
     """

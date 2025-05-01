@@ -113,7 +113,8 @@ def injectable(profile: Optional[typing.Union[Profile, str]] = None,
                 if not self.did_register.is_set():
                     if not self.did_already_register_factories():
                         return self._context_factory
-                return []
+                LoggerFacade.error("Attempted to register factories for injectable with hooks multiple times!")
+                return self._context_factory
 
             @property
             def post_construct_factory(self) -> list[PostConstructFactory]:
@@ -194,7 +195,6 @@ def injectable(profile: Optional[typing.Union[Profile, str]] = None,
         cls_value.proxied = underlying
         cls_value.context_factory_provider = InjectableProxy()
         cls_value.injectable_context_factory = True
-
         return cls_value
 
     return create_constructor

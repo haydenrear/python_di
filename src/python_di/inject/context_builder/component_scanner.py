@@ -145,8 +145,7 @@ class ComponentScanner:
         except Exception as imported_exception:
             exc = imported_exception
             try:
-                module_imported, next_id_value = cls._try_introspect_import(args, id_value, module_imported,
-                                                                            module_scanned, next_id_value)
+                module_imported, next_id_value = cls._try_introspect_import(args, id_value, module_scanned)
             except Exception as e:
                 exc = e
 
@@ -158,31 +157,49 @@ class ComponentScanner:
                 if n.id_value in module_imported.__dict__.keys()]
 
     @classmethod
-    def _try_introspect_import(cls, args, id_value, module_imported, module_scanned, next_id_value):
+    def _try_introspect_import(cls, args, id_value, module_scanned):
         assert args.starting is not None, \
             f"Could not import {id_value} - module does not exist with that name."
-        next_id_value = cls._parse_module_id(args, module_scanned)
-        if next_id_value is not None:
-            module_imported = importlib.import_module(next_id_value)
-        else:
-            LoggerFacade.error(f"{next_id_value} was none for {id_value}.")
-        return module_imported, next_id_value
+        last_exc = None
+        for n in cls._parse_module_id(args, module_scanned):
+            if n is not None:
+                try:
+                    module_imported = importlib.import_module(n)
+                    return module_imported, n
+                except Exception as e:
+                    last_exc = e
+            else:
+                LoggerFacade.error(f"{n} was none for {id_value}.")
+
+        if last_exc is not None:
+            raise last_exc
+
+        raise NotImplementedError("Failure.")
 
     @classmethod
     def _parse_module_id(cls, args, module_scanned):
         relativized = None
+        for a in sorted(args.sources, key=lambda s: len(s)):
+            if module_scanned.source_file.startswith(a):
+                relativized = os.path.relpath(module_scanned.source_file, a)
+                yield cls._parse_rel(relativized)
+
         if module_scanned.source_file.startswith(args.starting):
             relativized = os.path.relpath(module_scanned.source_file, args.starting)
-        else:
-            for path in sys.path:
-                if module_scanned.source_file.startswith(path):
-                    relativized = os.path.relpath(module_scanned.source_file, path)
-                    break
+            yield cls._parse_rel(relativized)
+
+        for path in sys.path:
+            if module_scanned.source_file.startswith(path):
+                relativized = os.path.relpath(module_scanned.source_file, path)
+                yield cls._parse_rel(relativized)
 
         assert relativized is not None
 
-        next_id_value = relativized.replace("/", ".")
+        yield cls._parse_rel(relativized)
 
+    @classmethod
+    def _parse_rel(cls, relativized):
+        next_id_value = relativized.replace("/", ".")
         if next_id_value.startswith("."):
             next_id_value = next_id_value[1:]
         if next_id_value.endswith(".py"):

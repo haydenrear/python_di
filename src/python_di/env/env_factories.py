@@ -10,3 +10,8 @@ class Factory(BaseModel):
 
 class Factories(BaseModel):
     factories: typing.List[Factory]
+
+    def get_factory(self, name: str) -> typing.Optional[Factory]:
+        for f in self.factories:
+            if f.factory == name:
+                return f

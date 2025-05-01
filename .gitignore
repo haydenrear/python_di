@@ -6,3 +6,4 @@ test_work/
 
 __pycache__/**
 out/
+.gradle

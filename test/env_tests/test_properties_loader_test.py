@@ -13,5 +13,5 @@ class TestPropertyLoader(unittest.TestCase):
         prop_loader = PropertyLoader(os.path.join(resources_value, 'application.yml'))
         factories = prop_loader.load_property_by_ty(Factories, 'env_factories')
         assert isinstance(factories, Factories)
-        assert isinstance(factories.factories['main_profile'], list)
-        assert isinstance(factories.factories['main_profile'][0], Factory)
+        assert isinstance(factories.factories, list)
+        assert isinstance(factories.factories[0], Factory)

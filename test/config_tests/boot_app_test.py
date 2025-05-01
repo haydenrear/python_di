@@ -1,14 +1,14 @@
 import unittest
 
+from config_tests.fixtures.component import TestComponent
 from config_tests.fixtures.to_inject_component import ToInjectComponent
 from python_di.configs.app import boot_application
 from python_di.inject.profile_composite_injector.inject_context_di import autowire_fn
 
-
 class BootAppTest(unittest.TestCase):
 
     def test_boot_app(self):
-        @boot_application()
+        @boot_application(root_dir_cls=TestComponent)
         class TestBootApp:
             pass
 
@@ -17,7 +17,7 @@ class BootAppTest(unittest.TestCase):
         assert value.c is not None
 
     def test_boot_app_autowire_fn(self):
-        @boot_application()
+        @boot_application(root_dir_cls=TestComponent)
         class TestBootApp:
             pass
         one = None

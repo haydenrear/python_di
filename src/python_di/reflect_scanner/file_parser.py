@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 
 import python_util.graph_util.graph_utils
 from python_di.reflect_scanner.module_graph_models import NodeType, FileNode, Import
+from python_util.logger.logger import LoggerFacade
 
 
 # Define enums for GraphElement and NodeType
@@ -61,14 +62,20 @@ class FileParser:
             with open(source_file_path, 'r') as source:
                 lines = source.read()
                 lines = ''.join(lines)
-                tree = ast.parse(lines)
-                mod_node = FileNode(NodeType.MODULE, source_file_path)
-                self.graph.add_node(mod_node)
+                try:
+                    tree = ast.parse(lines)
+                    mod_node = FileNode(NodeType.MODULE, source_file_path)
+                    self.graph.add_node(mod_node)
 
-                # TODO: ANTLR - right here is where the ast can be parsed from antlr
-                #       from any language.
-                for node in ast.iter_child_nodes(tree):
-                    self.visit_node(node, source_file_path, mod_node)
+                    # TODO: ANTLR - right here is where the ast can be parsed from antlr
+                    #       from any language.
+                    for node in ast.iter_child_nodes(tree):
+                        self.visit_node(node, source_file_path, mod_node)
+                except SyntaxError as s:
+                    if source_file_path.endswith('.py'):
+                        raise s
+
+                    LoggerFacade.error(f"Error parsing {source_file_path}: {s}")
 
         return self.graph
 

@@ -1,5 +1,6 @@
 import dataclasses
 import threading
+import typing
 from typing import Optional
 
 import injector as injector
@@ -18,8 +19,6 @@ class InjectorInjectionModule(injector.Module):
     def configure(self, binder: Binder):
         binder.bind(InjectionContextInjector, to=InjectionContextInjector, scope=injector.singleton)
 
-
-
 @dataclasses.dataclass(init=True)
 class InjectionContextInjectorContextArgs(InjectionContextArgs):
     injection_context_injector: InjectionContextInjector
@@ -28,7 +27,13 @@ class InjectionContextInjectorContextArgs(InjectionContextArgs):
 
 
 class InjectionContext:
-    ctx: InjectionContextInjector = None
+    ctx: typing.Optional[InjectionContextInjector] = None
+
+    @classmethod
+    @injector.synchronized(injector_lock)
+    def reset(cls):
+        cls.ctx = None
+        inject_context.ctx = None
 
     @injector.synchronized(injector_lock)
     def initialize_env(self, profile_name_override = None):

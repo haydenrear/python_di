@@ -4,3 +4,7 @@ def set_add_context_factory(items, cls):
     else:
         cls.context_factory = items
 
+def clear_context_factory(cls):
+    if hasattr(cls, 'context_factory'):
+        cls.context_factory = []
+

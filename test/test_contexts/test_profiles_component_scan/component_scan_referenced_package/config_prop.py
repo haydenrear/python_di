@@ -14,7 +14,7 @@ from python_di.properties.configuration_properties_decorator import configuratio
 class ConfigProp(ConfigurationProperties):
     test_value: str
 
-    value: Optional[str]
+    value: Optional[str] = None
 
     @post_construct
     def post_value(self):

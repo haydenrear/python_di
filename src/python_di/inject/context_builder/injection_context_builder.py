@@ -76,6 +76,7 @@ class InjectionContextBuilder:
                         c.execute(m, inject_context_args)
 
     def _organize_factories(self, factories_found):
+        factories_found = [f for f in factories_found]
         for e in self.context_factories:
             factories_found = e.organize_factories(factories_found)
         return factories_found
