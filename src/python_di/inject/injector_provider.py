@@ -49,7 +49,8 @@ class InjectionContextInjector:
             self.environment: YamlPropertiesFilesBasedEnvironment = environment
             profile_props: ProfileProperties = self.environment.register_profiles_config(
                 ProfileProperties.fallback if hasattr(ProfileProperties, 'fallback') else None)
-            profile_props.active_profiles[profile_name_override] = Profile(profile_name=profile_name_override, priority=999999999999)
+            if profile_name_override:
+                profile_props.active_profiles[profile_name_override] = Profile(profile_name=profile_name_override, priority=999999999999)
             self.injectors_dictionary = InjectorsPrioritized(profile_props)
             self.register_component_value([ProfileProperties], profile_props,
                                           profile=YamlPropertiesFilesBasedEnvironment.default_profile(),
