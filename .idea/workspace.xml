@@ -4,29 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6b85960c-3d21-48a6-9be2-9f425ea39233" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/idea_run/Python tests.run.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/test/config_tests/fixtures/fixtures_config.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/test/config_tests/tst_booter.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/resources/application.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/python_di/configs/autowire.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/python_di/configs/autowire.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/python_di/configs/test.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/python_di/configs/test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/python_di/env/env_factories.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/python_di/env/env_factories.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/python_di/inject/context_builder/component_scanner.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/python_di/inject/context_builder/component_scanner.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/python_di/inject/context_builder/ctx_util.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/python_di/inject/context_builder/ctx_util.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/python_di/inject/context_builder/injection_context.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/python_di/inject/context_builder/injection_context.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/python_di/inject/context_builder/injection_context_builder.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/python_di/inject/context_builder/injection_context_builder.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/python_di/reflect_scanner/file_parser.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/python_di/reflect_scanner/file_parser.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test/config_tests/boot_app_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/test/config_tests/boot_app_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test/config_tests/boot_test_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/test/config_tests/boot_test_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test/config_tests/test_booter.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/test/env_tests/test_properties_loader.py" beforeDir="false" afterPath="$PROJECT_DIR$/test/env_tests/test_properties_loader_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test/inject_tests/inject_builder_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/test/inject_tests/test_inject_builder_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test/test_contexts/test_profiles_component_scan/component_scan_referenced_package/config_prop.py" beforeDir="false" afterPath="$PROJECT_DIR$/test/test_contexts/test_profiles_component_scan/component_scan_referenced_package/config_prop.py" afterDir="false" />
-    </list>
+    <list default="true" id="6b85960c-3d21-48a6-9be2-9f425ea39233" name="Changes" comment="updated for fix" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -322,12 +300,33 @@
       <workItem from="1745938508870" duration="64000" />
       <workItem from="1746119486617" duration="12000" />
       <workItem from="1746119505037" duration="1858000" />
-      <workItem from="1746132460164" duration="8796000" />
+      <workItem from="1746132460164" duration="9593000" />
     </task>
+    <task id="LOCAL-00001" summary="updated for fix">
+      <option name="closed" value="true" />
+      <created>1746141276466</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1746141276466</updated>
+    </task>
+    <task id="LOCAL-00002" summary="updated for fix">
+      <option name="closed" value="true" />
+      <created>1746141323260</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1746141323260</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="updated for fix" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated for fix" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

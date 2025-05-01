@@ -131,26 +131,10 @@ class ComponentScanner:
 
     @classmethod
     def _import_module(cls, args, decorator_id, id_value, module_scanned, node_scanned: list[ProgramNode]):
-        module_imported = None
-        exc = None
-
-        next_id_value = id_value
-
         try:
-            if module_scanned.source_file.startswith(args.starting):
-                module_imported = importlib.import_module(id_value)
-            else:
-                module_imported, next_id_value = cls._try_introspect_import(args, id_value, module_imported,
-                                                                            module_scanned, next_id_value)
-        except Exception as imported_exception:
-            exc = imported_exception
-            try:
-                module_imported, next_id_value = cls._try_introspect_import(args, id_value, module_scanned)
-            except Exception as e:
-                exc = e
-
-        if module_imported is None:
-            LoggerFacade.error(f"{id_value} failed {next_id_value} from {args.sources} for {decorator_id}")
+            module_imported, next_id_value = cls._try_introspect_import(args, id_value, module_scanned)
+        except Exception as exc:
+            LoggerFacade.error(f"{id_value} failed from {args.sources} for {decorator_id}")
             raise exc
 
         return [module_imported.__dict__[n.id_value] for n in node_scanned
@@ -178,24 +162,19 @@ class ComponentScanner:
 
     @classmethod
     def _parse_module_id(cls, args, module_scanned):
-        relativized = None
-        for a in sorted(args.sources, key=lambda s: len(s)):
-            if module_scanned.source_file.startswith(a):
-                relativized = os.path.relpath(module_scanned.source_file, a)
-                yield cls._parse_rel(relativized)
+        yield from [cls._parse_rel(os.path.relpath(module_scanned.source_file, a))
+                    for a in sorted(args.sources, key=lambda s: len(s))
+                    if module_scanned.source_file.startswith(a)]
 
         if module_scanned.source_file.startswith(args.starting):
             relativized = os.path.relpath(module_scanned.source_file, args.starting)
             yield cls._parse_rel(relativized)
 
-        for path in sys.path:
-            if module_scanned.source_file.startswith(path):
-                relativized = os.path.relpath(module_scanned.source_file, path)
-                yield cls._parse_rel(relativized)
+        yield from [cls._parse_rel(os.path.relpath(module_scanned.source_file, path))
+                    for path in sys.path
+                    if module_scanned.source_file.startswith(path)]
 
-        assert relativized is not None
-
-        yield cls._parse_rel(relativized)
+        raise NotImplementedError("Could not find!")
 
     @classmethod
     def _parse_rel(cls, relativized):
