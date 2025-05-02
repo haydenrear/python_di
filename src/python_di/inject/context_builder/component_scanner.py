@@ -134,8 +134,7 @@ class ComponentScanner:
         try:
             module_imported, next_id_value = cls._try_introspect_import(args, id_value, module_scanned)
         except Exception as exc:
-            LoggerFacade.error(f"{id_value} failed from {args.sources} for {decorator_id}")
-            raise exc
+            LoggerFacade.raise_exc(f"{id_value} failed from {args.sources} for {decorator_id}", exc)
 
         return [module_imported.__dict__[n.id_value] for n in node_scanned
                 if n.id_value in module_imported.__dict__.keys()]
@@ -158,7 +157,7 @@ class ComponentScanner:
         if last_exc is not None:
             raise last_exc
 
-        raise NotImplementedError("Failure.")
+        LoggerFacade.raise_exc(f"Failed to introspect import for for {id_value}, {module_scanned}.", NotImplementedError)
 
     @classmethod
     def _parse_module_id(cls, args, module_scanned):
