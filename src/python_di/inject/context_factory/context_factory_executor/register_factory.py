@@ -188,6 +188,7 @@ def _do_multibind_curry(scope, profile, bindings) -> typing.Callable:
 
 @inject_context_di()
 def _do_multibind(scope, profile, bindings, ctx: Optional[InjectionContextInjector] = None):
+    bindings = {b: b for b in bindings}.values()
     return [
         ctx.get_interface(b, profile=profile, scope=scope) for b in bindings
     ]
