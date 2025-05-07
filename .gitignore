@@ -7,3 +7,5 @@ test_work/
 __pycache__/**
 out/
 .gradle
+build/
+src/python_di.egg-info

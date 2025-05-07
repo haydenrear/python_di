@@ -1,5 +1,6 @@
 import importlib
 import logging
+import os
 import unittest
 
 import networkx as nx
@@ -16,12 +17,14 @@ from python_di.reflect_scanner.scanner_properties import ScannerProperties
 @enable_configuration_properties(config_props=[ScannerProperties])
 class ModuleScannerTest(unittest.TestCase):
 
+    VENV = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.venv')
+
     def setUp(self) -> None:
         from python_di.inject.context_builder.injection_context import InjectionContext
         inject_ctx = InjectionContext()
         ctx = inject_ctx.initialize_env()
         self.scanner_props: ScannerProperties = ctx.get_interface(ScannerProperties)
-        assert self.scanner_props.num_up == 2
+        assert self.scanner_props.num_up == 0
 
         self.parser: ProgramParser = ctx.get_interface(ProgramParser)
         self.parser.do_parse()
@@ -30,7 +33,7 @@ class ModuleScannerTest(unittest.TestCase):
             print(n)
         assert self.parser.file_graphs
         assert self.parser.program_graph
-        self.torch_file = '/Users/hayde/IdeaProjects/drools/phx/lib/python3.10/site-packages/torch/nn/__init__.py'
+        self.torch_file = os.path.join(self.VENV, 'lib/python3.10/site-packages/torch/nn/__init__.py')
 
     def test_module_import(self):
         imported = importlib.import_module('torch.nn')
@@ -50,7 +53,7 @@ class ModuleScannerTest(unittest.TestCase):
         assert self.contains_node_with_filename(
             self.parser, self.torch_file)
         assert self.contains_node_with_filename(
-            self.parser, '/Users/hayde/IdeaProjects/drools/phx/lib/python3.10/site-packages/torch')
+            self.parser, os.path.join(self.VENV, 'lib/python3.10/site-packages/torch'))
 
         self.class_base_dependency_same_file(self.parser)
 

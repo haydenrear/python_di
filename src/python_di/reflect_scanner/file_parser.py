@@ -60,9 +60,9 @@ class FileParser:
     def parse(self, source_file_path) -> nx.DiGraph:
         if os.path.isfile(source_file_path):
             with open(source_file_path, 'r') as source:
-                lines = source.read()
-                lines = ''.join(lines)
                 try:
+                    lines = source.read()
+                    lines = ''.join(lines)
                     tree = ast.parse(lines)
                     mod_node = FileNode(NodeType.MODULE, source_file_path)
                     self.graph.add_node(mod_node)
@@ -71,6 +71,8 @@ class FileParser:
                     #       from any language.
                     for node in ast.iter_child_nodes(tree):
                         self.visit_node(node, source_file_path, mod_node)
+                except UnicodeDecodeError as r:
+                    LoggerFacade.debug(f"Failed to decode {source_file_path}: {r}")
                 except SyntaxError as s:
                     if source_file_path.endswith('.py'):
                         raise s

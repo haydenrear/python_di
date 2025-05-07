@@ -39,7 +39,10 @@ class InjectionContextInjector:
         self.did_initialize_env: asyncio.Event = asyncio.Event()
         self.did_initialize_init_factories: asyncio.Event = asyncio.Event()
 
-    def initialize_env_profiles(self, profile_name_override = None):
+    def initialize_env_profiles(self, profile_name_override = None, dot_env = None):
+        if not self.dot_env and dot_env:
+            self.dot_env = dot_env
+
         from python_di.env.init_env import get_env_module
         from python_di.inject.prioritized_injectors import InjectorsPrioritized
         from python_di.env.env_properties import YamlPropertiesFilesBasedEnvironment

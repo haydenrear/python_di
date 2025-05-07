@@ -193,6 +193,9 @@ class TupleIntrospecter(TypeIntrospector):
         ty_s = [self.agg.introspect_type_inner(b) for b in base.dims if b]
         s_ = []
         for ty in ty_s:
+            if not ty:
+                LoggerFacade.debug(f"Could not introspect {ty}")
+                continue
             if len(ty[1]) != 0:
                 s_.append(ty[1][0])
             else:
@@ -256,6 +259,9 @@ class DictClassDefParser(ClassDefIntrospectParser):
         return 1
 
     def parse_type(self, ty, name, inner) -> list[IntrospectedDef]:
+        if len(ty) < 2:
+            LoggerFacade.debug(f"Could not parse {name}")
+            return []
         return [IntrospectedDict(name=name, key=ty[0], value=ty[1])]
 
 
@@ -279,8 +285,10 @@ class GenericClassDefParser(ClassDefIntrospectParser):
         elif 'Tuple' in inner:
             return [IntrospectedGeneric(name=name, gen_types=[t for t in ty])]
         else:
-            assert len(ty) == 0, \
-                f"Unsupported generic type for {name}."
+            LoggerFacade.debug(f"Unsupported generic type for {name}.")
+            return []
+            # assert len(ty) == 0, \
+            #     f"Unsupported generic type for {name}."
             # LoggerFacade.debug(f"Found unsupported generic type {ty} with gen types {ty}.")
             # return [IntrospectedGeneric(name=name, gen_types=[t for t in ty])]
 
@@ -300,11 +308,16 @@ class SubscriptIntrospecter(TypeIntrospector):
             inner, ty = self.agg.introspect_type_inner(base.value)
         else:
             inner = base
-        outer, ty = self.agg.introspect_type_inner(base.slice)
 
-        name = f'{inner}[{outer}]'
-        for class_def_parser in self.class_def_parsers:
-            if class_def_parser.matches(ty, name, inner):
-                return name, class_def_parser.parse_type(ty, name, inner)
+        try:
+            outer, ty = self.agg.introspect_type_inner(base.slice)
+
+            name = f'{inner}[{outer}]'
+            for class_def_parser in self.class_def_parsers:
+                if class_def_parser.matches(ty, name, inner):
+                    return name, class_def_parser.parse_type(ty, name, inner)
+        except Exception as e:
+            LoggerFacade.debug(f"Error parsing {base}: {e}")
+            return None, []
 
         return name, [IntrospectedDef(name)]

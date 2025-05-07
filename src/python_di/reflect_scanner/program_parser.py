@@ -25,7 +25,7 @@ class InclusionCriteria(abc.ABC):
 class PythonSourceFileInclusionCriteria(InclusionCriteria):
 
     def do_include(self, x) -> bool:
-        return '.py' in x and '.pyc' not in x
+        return x is not None and x.endswith('.py')
 
 
 class SourceFileProvider(abc.ABC):
@@ -62,7 +62,7 @@ class ListBasedSourceFileProvider(SourceFileProvider):
         for directory_name in self.source:
             for subdir, dirs, files in os.walk(directory_name):
                 for file in files:
-                    if '.py' in file and '.pyc' not in file:
+                    if file is not None and file.endswith('.py'):
                         next_value = os.path.join(subdir, file)
                         if next_value not in self.walked:
                             yield next_value

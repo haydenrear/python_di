@@ -36,12 +36,12 @@ class InjectionContext:
         inject_context.ctx = None
 
     @injector.synchronized(injector_lock)
-    def initialize_env(self, profile_name_override = None):
+    def initialize_env(self, profile_name_override = None, env_source = None):
         if self.ctx is None:
             self.ctx = CompositeInjector([InjectorInjectionModule]).get(InjectionContextInjector)
             inject_context(self.ctx)
         if not self.ctx.did_initialize_env.is_set() is None:
-            self.ctx.initialize_env_profiles(profile_name_override)
+            self.ctx.initialize_env_profiles(profile_name_override, env_source)
             assert self.ctx.did_initialize_env.is_set(), "Was not set"
 
         return self.ctx

@@ -34,13 +34,18 @@ def get_env_module(name: Optional[str] = None):
     property of the resources loaded from the environment module.
     :return:
     """
+    LoggerFacade.info(f"Loading env: {name}")
     if name is not None:
         if not load_dotenv(name):
             logging.error("Error loading .env file.")
     if "ENV_FILE_PATH" in os.environ.keys():
         load_dotenv(os.environ["ENV_FILE_PATH"])
     else:
-        load_dotenv()
+        LoggerFacade.info("Loading env!")
+        if name is not None:
+            assert load_dotenv(name)
+        else:
+            load_dotenv(name)
     provider = os.environ["ENV_PROVIDER"]
     return import_load(provider)
 

@@ -32,7 +32,8 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
         self._profiles: Optional[ProfileProperties] = None
         self._factories: Optional[Factories] = None
         self._factories_locks: dict[str, asyncio.Event] = {}
-
+        for k, v in os.environ.items():
+            print(f'{k}: {v}')
         if "RESOURCES_DIR" in os.environ.keys():
             self.resources_dir = os.environ["RESOURCES_DIR"]
         elif "PROJ_HOME" in os.environ.keys():
