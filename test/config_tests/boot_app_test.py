@@ -8,7 +8,7 @@ from python_di.inject.profile_composite_injector.inject_context_di import autowi
 class BootAppTest(unittest.TestCase):
 
     def test_boot_app(self):
-        @boot_application(root_dir_cls=TestComponent)
+        @boot_application(root_dir_cls=TestComponent, profile_name_override='python_di_test')
         class TestBootApp:
             pass
 
@@ -17,7 +17,7 @@ class BootAppTest(unittest.TestCase):
         assert value.c is not None
 
     def test_boot_app_autowire_fn(self):
-        @boot_application(root_dir_cls=TestComponent)
+        @boot_application(root_dir_cls=TestComponent, profile_name_override='python_di_test')
         class TestBootApp:
             pass
         one = None

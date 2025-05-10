@@ -11,16 +11,17 @@ from python_di.configs.di_util import get_wrapped_fn
 
 
 def test_booter(scan_root_module: typing.Optional[typing.Type] = None,
-                scan_root_directory: typing.Optional[str] = None):
+                scan_root_directory: typing.Optional[str] = None,
+                profile_name_override: typing.Optional[str] = None):
     @functools.wraps(test_booter)
     def boot_test_inner(cls):
         package_root_directory = python_util.io_utils.file_dirs.get_dir(
             importlib.import_module(cls.__module__).__file__,'src')
         if scan_root_module is not None:
             scan_root_directory_created = os.path.dirname(importlib.import_module(scan_root_module.__module__).__file__)
-            _boot(cls, None, package_root_directory, None, scan_root_directory_created, 'test')
+            _boot(cls, None, package_root_directory, None, scan_root_directory_created, profile_name_override if profile_name_override else 'test')
         else:
-            _boot(cls, None, package_root_directory, scan_root_module, scan_root_directory, 'test')
+            _boot(cls, None, package_root_directory, scan_root_module, scan_root_directory, profile_name_override if profile_name_override else 'test')
 
         return cls
 

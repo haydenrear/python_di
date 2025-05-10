@@ -4,6 +4,7 @@ import os
 import typing
 
 import python_util.io_utils.file_dirs
+from python_di.configs.boot import _parse_dir
 from python_di.inject.context_builder.injection_context import InjectionContext
 from python_util.logger.logger import LoggerFacade
 
@@ -21,16 +22,7 @@ def boot_application(root_dir_cls: typing.Optional[typing.Type] = None,
     def boot_app_inner(cls):
         inject_ctx = InjectionContext()
 
-        stack_to_search = inspect.stack()
-        if len(stack_to_search) > 1:
-            LoggerFacade.info("Searching for .env file from booter.")
-            booter = inspect.stack()[1]
-            booter_source_file = booter.filename
-            found_dir = python_util.io_utils.file_dirs.find_file(booter_source_file, '.env')
-            LoggerFacade.info(f"Found .env - {found_dir}")
-        else:
-            LoggerFacade.info("Could not search for .env - stack was not big enough.")
-            found_dir = None
+        found_dir = _parse_dir(profile_name_override)
 
         env = inject_ctx.initialize_env(profile_name_override, found_dir)
 
