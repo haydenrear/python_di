@@ -32,6 +32,7 @@ class CompositeScope(injector.SingletonScope):
             # because by this time all values are added to the context, including all ProfileScope added to
             # the injector, can try to get the provider, and if it fails iterate through the profiles in priority
             # order and add to the CompositeScope _context and/or the top-level injector.
+            found = None
             try:
                 provided = injector.InstanceProvider(provider.get(self.injector))
             except (TypeError, UnsatisfiedRequirement) as e:
@@ -40,9 +41,18 @@ class CompositeScope(injector.SingletonScope):
                 except Exception as next_exc:
                     LoggerFacade.error(f'Found exc: {next_exc}')
                     raise next_exc
+            except injector.CallError as c:
+                if key in self.injector.binder._bindings.keys():
+                    found =   self.injector.binder._bindings[key].provider.get(self.injector)
+                    LoggerFacade.info("Found !")
+                else:
+                    raise c
             except Exception as e:
                 LoggerFacade.error(f"{e}")
                 raise e
+
+            if found is not None:
+                return found
 
             self.register_binding_idempotently(key, provided)
             self._context[key] = provided

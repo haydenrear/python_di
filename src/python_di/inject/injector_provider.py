@@ -12,6 +12,7 @@ from python_di.env.profile import Profile
 from python_di.env.property_source import PropertySource
 from python_di.inject.context_builder.profile_util import add_profile, create_add_profile_curry
 from python_di.inject.prioritized_injectors import InjectorsPrioritized
+from python_di.inject.profile_composite_injector.composite_injector import profile_scope
 from python_di.inject.profile_composite_injector.scopes.prototype_scope import PrototypeScopeDecorator
 from python_util.concurrent.synchronized_lock_stripe import LockStripingLocks
 from python_util.logger.logger import LoggerFacade

@@ -4,6 +4,7 @@ import injector
 from injector import Provider, T
 
 from python_di.env.profile import Profile
+from python_di.inject.profile_composite_injector.multibind_util import is_multibindable
 from python_util.logger.logger import LoggerFacade
 
 
@@ -111,7 +112,10 @@ class ProfileScope(injector.Scope):
 
     def _do_bind_add_context(self, binding_ty, retrieved_composite_scope, provider, scope):
         self._context[binding_ty] = retrieved_composite_scope.get(binding_ty, provider)
-        self.injector.binder.bind(binding_ty, self._context[binding_ty], scope)
+        if is_multibindable(self._context[binding_ty]):
+            self.injector.binder.multibind(binding_ty, self._context[binding_ty])
+        else:
+            self.injector.binder.bind(binding_ty, self._context[binding_ty], scope)
         LoggerFacade.debug(f"Set {binding_ty} from composite scope in profile scope {self.profile.profile_name}.")
 
     def __contains__(self, item: Type[T]):
