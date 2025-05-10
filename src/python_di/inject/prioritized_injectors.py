@@ -285,8 +285,8 @@ class InjectorsPrioritized:
                 LoggerFacade.warn("Logger was empty but contained entry.")
             yield from self.yield_all_inj(do_collapse)
         else:
-            single_profile = self._yield_single_profile(do_collapse, profile)
-            yield from self.yield_all_inj(do_collapse, {profile}, [single_profile])
+            yield from self._yield_single_profile(do_collapse, profile)
+            yield from self.yield_all_inj(do_collapse, {profile})
 
     def retrieve_injector(self, ty: typing.Type[T], do_collapse: bool, profile: Profile) -> typing.Generator[
         injector.Injector, None, None]:
@@ -294,10 +294,7 @@ class InjectorsPrioritized:
             yield i.retrieve_injector(do_collapse=do_collapse)
 
     @injector.synchronized(synchronized_lock)
-    def yield_all_inj(self, do_collapse: bool = True, exclusions: set[Profile] = None, first = None):
-        if first is not None:
-            for f in first:
-                yield f
+    def yield_all_inj(self, do_collapse: bool = True, exclusions: set[Profile] = None):
         for p, j in sorted(self.injectors.items(), key=lambda k_v: k_v[0].priority, reverse=True):
             if exclusions is not None and p in exclusions:
                 continue
@@ -313,7 +310,7 @@ class InjectorsPrioritized:
         next_profile = self.injectors[profile]
         if do_collapse:
             composite_injector = next_profile.collapse_injectors()
-        return next_profile
+        yield next_profile
 
     def _do_check_if_bound(self, concrete: typing.Type[T]):
         """
