@@ -1,3 +1,4 @@
+import typing
 from typing import Type
 
 import injector
@@ -6,6 +7,11 @@ from injector import Provider, T
 from python_di.env.profile import Profile
 from python_di.inject.profile_composite_injector.multibind_util import is_multibindable
 from python_util.logger.logger import LoggerFacade
+
+def _iter_profile_scope(all_profile_scopes):
+    return sorted(all_profile_scopes,
+                  key=lambda next_profile_scope: next_profile_scope.profile,
+                  reverse=True)
 
 
 class ProfileScope(injector.Scope):
@@ -25,6 +31,7 @@ class ProfileScope(injector.Scope):
         else:
             # If fails, try to get from composite scope, which will get from the highest priority profile.
             try:
+
                 provider = provider.get(self.injector)
                 assert not isinstance(provider, injector.Provider)
                 instance_provider = injector.InstanceProvider(provider)

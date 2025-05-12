@@ -9,7 +9,7 @@ from injector import Provider, synchronized, T, InstanceProvider, UnsatisfiedReq
 
 from python_di.env.profile import Profile
 from python_di.inject.profile_composite_injector.multibind_util import is_multibindable
-from python_di.inject.profile_composite_injector.scopes.profile_scope import ProfileScope
+from python_di.inject.profile_composite_injector.scopes.profile_scope import ProfileScope, _iter_profile_scope
 from python_util.logger.logger import LoggerFacade
 
 lock = threading.RLock()
@@ -33,6 +33,18 @@ class CompositeScope(injector.SingletonScope):
             # the injector, can try to get the provider, and if it fails iterate through the profiles in priority
             # order and add to the CompositeScope _context and/or the top-level injector.
             found = None
+            from python_di.inject.profile_composite_injector.composite_injector import CompositeInjector
+            self.injector: CompositeInjector = self.injector
+            if typing.List[ProfileScope] in self.injector.binder._bindings.keys():
+                profiles = self.injector.binder._bindings.get(typing.List[ProfileScope]).provider.get(self.injector)
+                for p in _iter_profile_scope(profiles):
+                    p: ProfileScope = p
+                    if p.profile.profile_name == 'main_profile':
+                        break
+                    if key in p.injector.binder._bindings.keys():
+                        self.injector.binder._bindings[key] = p.injector.binder._bindings[key]
+                        provider = p.injector.binder._bindings[key].provider
+                        break
             try:
                 provided = injector.InstanceProvider(provider.get(self.injector))
             except (TypeError, UnsatisfiedRequirement) as e:

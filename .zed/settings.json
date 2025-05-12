@@ -1,0 +1,15 @@
+{
+  "lsp": {
+    "pyright": {
+      "settings": {
+        "python.analysis": {
+          "diagnosticMode": "workspace",
+          "typeCheckingMode": "strict"
+        },
+        "python": {
+          "pythonPath": "/Users/hayde/IdeaProjects/drools/python_di/.venv/bin/python3.10"
+        }
+      }
+    }
+  }
+}

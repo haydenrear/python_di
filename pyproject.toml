@@ -55,3 +55,7 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 test-python-di = "python_di.test.run:main"
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
