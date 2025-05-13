@@ -33,34 +33,21 @@ class CompositeScope(injector.SingletonScope):
             # the injector, can try to get the provider, and if it fails iterate through the profiles in priority
             # order and add to the CompositeScope _context and/or the top-level injector.
             found = None
-            from python_di.inject.profile_composite_injector.composite_injector import CompositeInjector
-            self.injector: CompositeInjector = self.injector
-            if typing.List[ProfileScope] in self.injector.binder._bindings.keys():
-                profiles = self.injector.binder._bindings.get(typing.List[ProfileScope]).provider.get(self.injector)
-                for p in _iter_profile_scope(profiles):
-                    p: ProfileScope = p
-                    if p.profile.profile_name == 'main_profile':
-                        break
-                    if key in p.injector.binder._bindings.keys():
-                        self.injector.binder._bindings[key] = p.injector.binder._bindings[key]
-                        provider = p.injector.binder._bindings[key].provider
-                        break
             try:
                 provided = injector.InstanceProvider(provider.get(self.injector))
             except (TypeError, UnsatisfiedRequirement) as e:
                 try:
                     provided = self.do_get_provided(e, key, provider)
                 except Exception as next_exc:
-                    LoggerFacade.error(f'Found exc: {next_exc}')
+                    LoggerFacade.debug(f'Found exc: {next_exc}')
                     raise next_exc
             except injector.CallError as c:
                 if key in self.injector.binder._bindings.keys():
-                    found =   self.injector.binder._bindings[key].provider.get(self.injector)
-                    LoggerFacade.info("Found !")
+                    found = self.injector.binder._bindings[key].provider.get(self.injector)
                 else:
                     raise c
             except Exception as e:
-                LoggerFacade.error(f"{e}")
+                LoggerFacade.debug(f"{e}")
                 raise e
 
             if found is not None:
@@ -72,7 +59,6 @@ class CompositeScope(injector.SingletonScope):
 
     def do_get_provided(self, e, key, provider):
         from python_di.inject.profile_composite_injector.composite_injector import composite_scope
-        LoggerFacade.debug(f"Found error: {e}")
         all_profile_scopes: typing.List[ProfileScope] \
             = self.injector.get(typing.List[ProfileScope], scope=composite_scope)
         if isinstance(provider, injector.ClassProvider):
@@ -91,7 +77,7 @@ class CompositeScope(injector.SingletonScope):
     def _try_fix_dep_bindings(self, all_profile_scopes, fn_bound):
         """
         Sometimes a dependency will be bound in a profile scope, in which case the value needs to be added to this
-        context as well.
+        context as well, recursively. Then the profile scope can call the composite scope.
         :param all_profile_scopes:
         :param fn_bound:
         :return:
@@ -112,7 +98,7 @@ class CompositeScope(injector.SingletonScope):
                                 self._context[binding_ty] = self.get(binding_ty, provider)
                                 break
                             else:
-                                LoggerFacade.info(f"Deleted no scope binding for {binding_ty} found in composite "
+                                LoggerFacade.debug(f"Deleted no scope binding for {binding_ty} found in composite "
                                                   f"scope.")
                                 del self.injector.binder._bindings[binding_ty]
                         except:
@@ -128,7 +114,7 @@ class CompositeScope(injector.SingletonScope):
                             self._context[binding_ty] = created
                             break
                         else:
-                            LoggerFacade.info(f"Deleted no scope binding for {binding_ty} found in composite "
+                            LoggerFacade.debug(f"Deleted no scope binding for {binding_ty} found in composite "
                                               f"scope.")
                             del p.injector.binder._bindings[binding_ty]
                     except:

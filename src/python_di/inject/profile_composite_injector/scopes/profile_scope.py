@@ -31,7 +31,6 @@ class ProfileScope(injector.Scope):
         else:
             # If fails, try to get from composite scope, which will get from the highest priority profile.
             try:
-
                 provider = provider.get(self.injector)
                 assert not isinstance(provider, injector.Provider)
                 instance_provider = injector.InstanceProvider(provider)
@@ -59,6 +58,11 @@ class ProfileScope(injector.Scope):
             return self._context[key]
 
     def _try_fix_bind_issue(self, provider):
+        """
+        Go to the composite scope, which parses all profile scopes successively.
+        :param provider:
+        :return:
+        """
         bindings_created = injector.get_bindings(provider)
         from python_di.inject.profile_composite_injector.scopes.composite_scope import CompositeScope
         retrieved_composite_scope = self.injector.get(CompositeScope, scope=injector.singleton)
@@ -100,7 +104,7 @@ class ProfileScope(injector.Scope):
                 # TODO: prohibit from creating no_scope binding that keeps it from searching through the other scopes.
                 binding_found = self.injector.binder.get_binding(binding_ty)[0]
                 if is_no_scope(binding_found.scope):
-                    LoggerFacade.warn(f"Found no scope {binding_ty} in ProfileScope. Deleting it now.")
+                    LoggerFacade.debug(f"Found no scope {binding_ty} in ProfileScope. Deleting it now.")
                     # removing this for the potential of circular dependency.
                     del self.injector.binder._bindings[binding_ty]
                     self._get_register_binding_dep_recursive(binding_ty, retrieved_composite_scope)
@@ -115,7 +119,7 @@ class ProfileScope(injector.Scope):
                         self.get(binding_ty, binding_found.provider)
 
         else:
-            LoggerFacade.info(f"Skipped {binding_ty} as dependency.")
+            LoggerFacade.debug(f"Skipped {binding_ty} as dependency.")
 
     def _do_bind_add_context(self, binding_ty, retrieved_composite_scope, provider, scope):
         self._context[binding_ty] = retrieved_composite_scope.get(binding_ty, provider)

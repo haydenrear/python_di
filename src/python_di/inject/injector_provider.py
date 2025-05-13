@@ -148,7 +148,7 @@ class InjectionContextInjector:
         if found_obj is not None:
             return found_obj
         else:
-            LoggerFacade.warn(f"Could not find {type_value}.")
+            LoggerFacade.debug(f"Could not find {type_value}.")
 
     def get_property_with_default(self, key, default, profile_name=None):
         if self.environment is not None:
@@ -295,7 +295,7 @@ class InjectionContextInjector:
             else:
                 binding, _ = injector_value.binder.get_binding(type_value)
                 if scope_decorator is not None and binding.scope != scope_decorator:
-                    LoggerFacade.error(f"Scope requested was {scope_decorator}, but scope contained in {profile} was "
+                    LoggerFacade.debug(f"Scope requested was {scope_decorator}, but scope contained in {profile} was "
                                        f"{binding.scope} for {binding}.")
                 elif scope_decorator is None:
                     scope_decorator = injector.singleton.scope
