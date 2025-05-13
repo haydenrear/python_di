@@ -94,7 +94,8 @@ class InjectionContext:
     def organize_composite_scope(composite_scope: CompositeScope):
         #  TODO:
         # composite scope should register the highest priority profile bean as the singleton bean, if there does not
-        # exist a singleton bean for that bean.
+        # exist a singleton bean for that bean, overriding the main_profile in the case where there exists a higher
+        # priority bean - but not overriding it for that ProfileScope, as it should still be available to be created.
         assert composite_scope is not None
         composite_scope.injector.mark_immutable()
         return composite_scope
