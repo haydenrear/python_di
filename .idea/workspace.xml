@@ -5,15 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="6b85960c-3d21-48a6-9be2-9f425ea39233" name="Changes" comment="update for parsing env different profile">
-      <change afterPath="$PROJECT_DIR$/.zed/settings.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/pyrightconfig.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/python_di/env/env_properties.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/python_di/env/env_properties.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/python_di/inject/injector_provider.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/python_di/inject/injector_provider.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/python_di/inject/profile_composite_injector/scopes/composite_scope.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/python_di/inject/profile_composite_injector/scopes/composite_scope.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/python_di/inject/profile_composite_injector/scopes/profile_scope.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/python_di/inject/profile_composite_injector/scopes/profile_scope.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/python_di/test/run.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/python_di/test/run.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/python_di/inject/context_builder/injection_context.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/python_di/inject/context_builder/injection_context.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -89,7 +81,7 @@
     "Python tests.Python tests in test.executor": "Run",
     "Python tests.Python tests in test_inject_builder_test.py.executor": "Run",
     "Python tests.Python tests in test_runner.py.executor": "Debug",
-    "Python tests.Python tests.executor": "Run",
+    "Python tests.Python tests.executor": "Debug",
     "Python.run.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
@@ -123,7 +115,7 @@
       <recent name="$PROJECT_DIR$/test/config_tests" />
     </key>
   </component>
-  <component name="RunManager" selected="Python tests.Python tests">
+  <component name="RunManager" selected="uv.Project script: test">
     <configuration name="run" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="python_di" />
       <option name="ENV_FILES" value="" />
@@ -211,6 +203,7 @@
       <workItem from="1746916829666" duration="2101000" />
       <workItem from="1746971399151" duration="3291000" />
       <workItem from="1746975677774" duration="11504000" />
+      <workItem from="1747097002919" duration="5579000" />
     </task>
     <task id="LOCAL-00001" summary="updated for fix">
       <option name="closed" value="true" />
@@ -340,7 +333,23 @@
       <option name="project" value="LOCAL" />
       <updated>1746919222852</updated>
     </task>
-    <option name="localTasksCounter" value="17" />
+    <task id="LOCAL-00017" summary="update for parsing env different profile">
+      <option name="closed" value="true" />
+      <created>1747101558140</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1747101558140</updated>
+    </task>
+    <task id="LOCAL-00018" summary="update for parsing env different profile">
+      <option name="closed" value="true" />
+      <created>1747163344011</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1747163344011</updated>
+    </task>
+    <option name="localTasksCounter" value="19" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -358,6 +367,8 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
+    <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
+    <option name="CHECK_NEW_TODO" value="false" />
     <MESSAGE value="updated for fix" />
     <MESSAGE value="migrated to uv" />
     <MESSAGE value="updated" />
@@ -366,8 +377,19 @@
     <MESSAGE value="update for parsing env different profile" />
     <option name="LAST_COMMIT_MESSAGE" value="update for parsing env different profile" />
   </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/python_di/inject/profile_composite_injector/scopes/composite_scope.py</url>
+          <line>39</line>
+          <option name="timeStamp" value="17" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/python_di$.coverage" NAME=" Coverage Results" MODIFIED="1746987088407" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test" />
+    <SUITE FILE_PATH="coverage/python_di$.coverage" NAME=" Coverage Results" MODIFIED="1747163012516" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test" />
     <SUITE FILE_PATH="coverage/python_di$run.coverage" NAME="run Coverage Results" MODIFIED="1746635153259" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/python_di/test" />
   </component>
 </project>
