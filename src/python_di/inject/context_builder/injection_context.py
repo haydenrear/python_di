@@ -11,6 +11,7 @@ from python_di.inject.context_factory.context_factory_executor.context_factories
 from python_di.inject.context_builder.inject_ctx import inject_context
 from python_di.inject.injector_provider import InjectionContextInjector
 from python_di.inject.profile_composite_injector.composite_injector import CompositeInjector
+from python_di.inject.profile_composite_injector.scopes.composite_scope import CompositeScope
 
 injector_lock = threading.RLock()
 
@@ -47,6 +48,18 @@ class InjectionContext:
         return self.ctx
 
     @injector.synchronized(injector_lock)
+    def merge_context(self,
+                      parent_sources: set[str],
+                      source_directory: Optional[str] = None):
+        """
+        TODO: parse the context lazily instead of eagerly, merge together scopes
+        :param parent_sources:
+        :param source_directory:
+        :return:
+        """
+        raise ValueError("Is not implemented.")
+
+    @injector.synchronized(injector_lock)
     def build_context(self,
                       parent_sources: set[str],
                       source_directory: Optional[str] = None):
@@ -65,7 +78,23 @@ class InjectionContext:
         ctx_args = InjectionContextInjectorContextArgs(self.ctx, parent_sources, source_directory)
         factories = context_builder.build_context(ctx_args)
 
+        composite_scope = None
         for b in self.ctx.injectors_dictionary.injectors.values():
             b.collapse_injectors()
+            if composite_scope is not None:
+                assert composite_scope == b.composite_scope
+            else:
+                composite_scope = b.composite_scope
+
+        self.organize_composite_scope(composite_scope)
 
         context_builder.do_lifecycle_hooks(factories, ctx_args)
+
+    @staticmethod
+    def organize_composite_scope(composite_scope: CompositeScope):
+        #  TODO:
+        # composite scope should register the highest priority profile bean as the singleton bean, if there does not
+        # exist a singleton bean for that bean.
+        assert composite_scope is not None
+        composite_scope.injector.mark_immutable()
+        return composite_scope

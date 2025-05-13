@@ -87,8 +87,7 @@ class InjectorsPrioritized:
         self.injectors[default_profile] = InjectionObservationField(
             [composite_injector],
             profile_scope=self.profile_scopes[default_profile.profile_name.lower()],
-            composite_scope=self.composite_scope
-        )
+            composite_scope=self.composite_scope)
         bind_composite_scope(composite_injector, self.composite_scope)
         self.config_idx: dict[typing.Type, Profile] = {}
         self.profiles: Optional[ProfileProperties] = None
