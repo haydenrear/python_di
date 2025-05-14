@@ -4,9 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6b85960c-3d21-48a6-9be2-9f425ea39233" name="Changes" comment="update for parsing env different profile">
-      <change beforePath="$PROJECT_DIR$/src/python_di/inject/context_builder/injection_context.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/python_di/inject/context_builder/injection_context.py" afterDir="false" />
-    </list>
+    <list default="true" id="6b85960c-3d21-48a6-9be2-9f425ea39233" name="Changes" comment="update for parsing env different profile" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -203,7 +201,7 @@
       <workItem from="1746916829666" duration="2101000" />
       <workItem from="1746971399151" duration="3291000" />
       <workItem from="1746975677774" duration="11504000" />
-      <workItem from="1747097002919" duration="5579000" />
+      <workItem from="1747097002919" duration="7664000" />
     </task>
     <task id="LOCAL-00001" summary="updated for fix">
       <option name="closed" value="true" />
@@ -349,7 +347,15 @@
       <option name="project" value="LOCAL" />
       <updated>1747163344011</updated>
     </task>
-    <option name="localTasksCounter" value="19" />
+    <task id="LOCAL-00019" summary="update for parsing env different profile">
+      <option name="closed" value="true" />
+      <created>1747163395886</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1747163395886</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

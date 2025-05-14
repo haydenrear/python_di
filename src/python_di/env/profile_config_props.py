@@ -80,7 +80,7 @@ class ProfileProperties(ConfigurationProperties):
 
     def profiles_sorted_by_priority(self) -> list[...]:
         return [
-            v for k, v in sorted(self.active_profiles.items(), key=lambda k_v: k_v[1], reverse=True)
+            v for k, v in sorted(self.active_profiles.items(), key=lambda k_v: k_v[1].priority, reverse=True)
         ]
 
     @injector.synchronized(injector_lock)

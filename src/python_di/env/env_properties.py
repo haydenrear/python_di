@@ -6,6 +6,7 @@ import uuid
 from typing import Optional
 
 import yaml
+from python_di.env import main_profile
 
 from python_util.collections.collection_util import collect_multimap
 from python_di.env.base_env_properties import PropertyPrefix, Environment
@@ -248,9 +249,11 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
 
     def load_profiles_from_env(self):
         if 'spring.profiles.active' in os.environ.keys():
-            return self.parse_profiles_from_profile_env(os.environ['spring.profiles.active'])
+            parsed = self.parse_profiles_from_profile_env(os.environ['spring.profiles.active'])
+            return parsed
         if "SPRING_PROFILES_ACTIVE" in os.environ.keys():
-            return self.parse_profiles_from_profile_env(os.environ['SPRING_PROFILES_ACTIVE'])
+            parsed = self.parse_profiles_from_profile_env(os.environ['SPRING_PROFILES_ACTIVE'])
+            return parsed
 
 
     @staticmethod
@@ -258,10 +261,12 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
         p = [p.strip() for p in p.split(',')]
         if len(p) != 0:
             default = list(reversed(p))[0]
+            profile = main_profile.get_default_profile()
             return ProfileProperties(**{
-                "active_profiles": {profile_name: Profile(**{"profile_name": p, "priority": i})
-                                    for i, profile_name in enumerate(p)},
-                "default_profile": Profile(**{"profile_name": default, "priority": len(p) - 1})
+                "active_profiles": {
+                    profile_name: Profile(**{"profile_name": profile_name, "priority": ((i + 1) * 1000000000) + profile.priority})
+                    for i, profile_name in enumerate(p)},
+                "default_profile": profile
             })
 
     def get_sorted_yml_files(self):
@@ -292,12 +297,15 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
 
     def load_profiles(self, fallback: Optional[str] = None) -> ConfigurationProperties:
         from_env = self.load_profiles_from_env()
+        ty = ProfileProperties
+        self.assert_prefixname(ty)
+        loaded: ProfileProperties = self._load_profile_properties(self.yml_files, fallback)
+
         if from_env is not None:
-            return from_env
-        else:
-            ty = ProfileProperties
-            self.assert_prefixname(ty)
-            return self._load_profile_properties(self.yml_files, fallback)
+            for name, f in from_env.active_profiles.items():
+                loaded.active_profiles[name] = f
+
+        return loaded
 
     def _load_profile_properties(self,
                                  yml_files,

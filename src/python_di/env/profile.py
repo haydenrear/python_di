@@ -29,24 +29,24 @@ class Profile(BaseModuleProps):
         if not isinstance(other, Profile):
             return True
         else:
-            return self.priority > other.priority and self.profile_name.lower() > other.profile_name.lower()
+            return self.priority > other.priority
 
     def __lt__(self, other):
         if not isinstance(other, Profile):
             return True
         else:
-            return self.priority < other.priority and self.profile_name.lower() < other.profile_name.lower()
+            return self.priority < other.priority
 
     def __le__(self, other):
         if not isinstance(other, Profile):
             return True
         else:
-            return self.priority <= other.priority and self.profile_name.lower() <= other.profile_name.lower()
+            return self.priority <= other.priority
 
     def __ge__(self, other):
         if not isinstance(other, Profile):
             return True
         else:
-            return self.priority >= other.priority and self.profile_name.lower() >= other.profile_name.lower()
+            return self.priority >= other.priority
 
 
