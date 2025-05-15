@@ -14,6 +14,8 @@ def _parse_dir(profile_name_override = None, root_dir = None):
     if root_dir is not None:
         booter_source_file = root_dir
         found_dir = find_file(booter_source_file, f'.{profile_name_override}_env' if profile_name_override is not None else '.env')
+        if found_dir is not None:
+            return found_dir
     if len(stack_to_search) > 1:
         if found_dir is None:
             for s in stack_to_search[1:]:
@@ -28,7 +30,7 @@ def _parse_dir(profile_name_override = None, root_dir = None):
         LoggerFacade.info("Could not search for .env - stack was not big enough.")
 
 def _build_ctx(package_root_directory, scan_root, profile_name_override = None):
-    parsed_env = _parse_dir(profile_name_override)
+    parsed_env = _parse_dir(profile_name_override, package_root_directory)
     from python_di.inject.context_builder.injection_context import InjectionContext
     assert package_root_directory is not None and scan_root is not None, "root directory was None."
     LoggerFacade.info(f"Found {package_root_directory} and {scan_root} when building context.")
