@@ -6,10 +6,6 @@
   <component name="ChangeListManager">
     <list default="true" id="6b85960c-3d21-48a6-9be2-9f425ea39233" name="Changes" comment="update for parsing env different profile">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/python_di/inject/prioritized_injectors.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/python_di/inject/prioritized_injectors.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/python_di/inject/profile_composite_injector/inject_context_di.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/python_di/inject/profile_composite_injector/inject_context_di.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/uv.lock" beforeDir="false" afterPath="$PROJECT_DIR$/uv.lock" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -209,7 +205,7 @@
       <workItem from="1746975677774" duration="11504000" />
       <workItem from="1747097002919" duration="7664000" />
       <workItem from="1747248085330" duration="9000" />
-      <workItem from="1747331031942" duration="2562000" />
+      <workItem from="1747331031942" duration="3791000" />
     </task>
     <task id="LOCAL-00001" summary="updated for fix">
       <option name="closed" value="true" />
