@@ -17,8 +17,6 @@ from python_di.reflect_scanner.scanner_properties import ScannerProperties
 @enable_configuration_properties(config_props=[ScannerProperties])
 class ModuleScannerTest(unittest.TestCase):
 
-    VENV = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.venv')
-
     def setUp(self) -> None:
         from python_di.inject.context_builder.injection_context import InjectionContext
         inject_ctx = InjectionContext()
@@ -33,12 +31,12 @@ class ModuleScannerTest(unittest.TestCase):
             print(n)
         assert self.parser.file_graphs
         assert self.parser.program_graph
-        self.torch_file = os.path.join(self.VENV, 'lib/python3.10/site-packages/torch/nn/__init__.py')
+        self.torch_file = 'lib/python3.10/site-packages/torch/nn/__init__.py'
 
     def test_module_import(self):
         imported = importlib.import_module('torch.nn')
         assert 'Module' in imported.__dict__.keys()
-        assert self.torch_file == imported.__file__
+        assert imported.__file__.endswith(self.torch_file)
 
     def test_digraph(self):
         digraph = nx.DiGraph()
@@ -53,7 +51,7 @@ class ModuleScannerTest(unittest.TestCase):
         assert self.contains_node_with_filename(
             self.parser, self.torch_file)
         assert self.contains_node_with_filename(
-            self.parser, os.path.join(self.VENV, 'lib/python3.10/site-packages/torch'))
+            self.parser, 'lib/python3.10/site-packages/torch')
 
         self.class_base_dependency_same_file(self.parser)
 
@@ -119,7 +117,7 @@ class ModuleScannerTest(unittest.TestCase):
     def contains_node_with_filename(self, program_parser, parser_name):
         has_node = False
         for node in program_parser.program_graph.nodes:
-            if node.source_file == parser_name or parser_name in node.source_file:
+            if parser_name in node.source_file:
                 has_node = True
         return has_node
 

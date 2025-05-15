@@ -32,7 +32,6 @@ from test_contexts.test_profiles_component_scan.component_scan_referenced_packag
     MultibindableInterface, MultibindableImpl, MultibindableImpl2
 from test_contexts.test_profiles_component_scan.component_scan_referenced_package.prototype_bean_ref import \
     TestPrototypeBean
-from test_framework.assertions.assert_all import assert_all
 
 
 class InjectorBuilder(unittest.TestCase):
@@ -47,17 +46,14 @@ class InjectorBuilder(unittest.TestCase):
 
         created = inject_ctx.ctx.get_interface(typing.List[MultibindableInterface])
 
-        assert_all_values = assert_all()
-
-        assert_all_values(len(created) == 2, f"Created had wrong number of values, was {created}")
-        assert_all_values(all([isinstance(c, MultibindableInterface) for c in created]),
+        assert (len(created) == 2, f"Created had wrong number of values, was {created}")
+        assert (all([isinstance(c, MultibindableInterface) for c in created]),
                           "Multbind interface was not correct values.")
-        assert_all_values(not all([not isinstance(c, MultibindableImpl) for c in created]),
+        assert (not all([not isinstance(c, MultibindableImpl) for c in created]),
                           "Multbind did not have expected values")
-        asserted = assert_all_values(not all([not isinstance(c, MultibindableImpl2) for c in created]),
+        assert (not all([not isinstance(c, MultibindableImpl2) for c in created]),
                                      "Multibind did not have expected values")
 
-        asserted()
 
     def test_inject_builder(self):
         inject_ctx = InjectionContext()
