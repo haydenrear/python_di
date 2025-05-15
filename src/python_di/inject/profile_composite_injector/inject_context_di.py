@@ -96,7 +96,7 @@ def autowire_fn(descr: dict[str, InjectionDescriptor] = None,
     def wrapper(fn):
         @functools.wraps(fn)
         def inject_proxy(*args, **kwargs):
-            if config_type is not None and profile is not None and config_type.name.lower() != profile.lower():
+            if config_type is not None and profile is not None and config_type.value.lower() != profile.lower():
                 raise ValueError(f"Both {config_type} and {profile} were provided to autowire fn for {fn}, "
                                  f"using {config_type} profile.")
             args_to_call, profile_found, scope_decorator_found = _deconstruct_profile_args_data(args, kwargs)

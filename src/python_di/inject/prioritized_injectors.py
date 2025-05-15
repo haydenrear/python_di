@@ -271,6 +271,7 @@ class InjectorsPrioritized:
 
         self._assert_injectors(profile, ty)
         if profile is not None and profile not in self.injectors.keys():
+            LoggerFacade.info(f"Loading {profile}.")
             composite_injector = create_bind_new_injector([], self.composite_scope, profile)
             self.profile_scopes[profile.profile_name.lower()] = composite_injector.get(ProfileScope, ProfileScope)
             self.injectors[profile] = InjectionObservationField(injectors=[composite_injector],
