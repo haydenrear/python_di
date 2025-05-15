@@ -7,18 +7,23 @@ from python_util.logger.logger import LoggerFacade
 
 from python_util.io_utils.file_dirs import find_file
 
-def _parse_dir(profile_name_override = None):
+def _parse_dir(profile_name_override = None, root_dir = None):
     stack_to_search = inspect.stack()
 
+    found_dir = None
+    if root_dir is not None:
+        booter_source_file = root_dir
+        found_dir = find_file(booter_source_file, f'.{profile_name_override}_env' if profile_name_override is not None else '.env')
     if len(stack_to_search) > 1:
-        for s in stack_to_search[1:]:
-            LoggerFacade.info("Searching for .env file from booter.")
-            booter = s
-            booter_source_file = booter.filename
-            found_dir = find_file(booter_source_file, f'.{profile_name_override}_env' if profile_name_override is not None else '.env')
-            if found_dir is not None:
-                return found_dir
-            LoggerFacade.info(f"Found .env - {found_dir}")
+        if found_dir is None:
+            for s in stack_to_search[1:]:
+                LoggerFacade.info("Searching for .env file from booter.")
+                booter = s
+                booter_source_file = booter.filename
+                found_dir = find_file(booter_source_file, f'.{profile_name_override}_env' if profile_name_override is not None else '.env')
+        if found_dir is not None:
+            return found_dir
+        LoggerFacade.info(f"Found .env - {found_dir}")
     else:
         LoggerFacade.info("Could not search for .env - stack was not big enough.")
 

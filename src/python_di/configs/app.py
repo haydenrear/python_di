@@ -22,7 +22,7 @@ def boot_application(root_dir_cls: typing.Optional[typing.Type] = None,
     def boot_app_inner(cls):
         inject_ctx = InjectionContext()
 
-        found_dir = _parse_dir(profile_name_override)
+        found_dir = _parse_dir(profile_name_override, root_dir_name)
 
         env = inject_ctx.initialize_env(profile_name_override, found_dir)
 

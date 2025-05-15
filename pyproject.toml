@@ -32,8 +32,8 @@ classifiers = [
 ]
 
 [tool.uv.sources]
-python_util = { path = "../python_util", editable=true }
-drools_py = { path = "../drools_py", editable=true }
+drools_py = { workspace = true }
+python_util = { workspace = true }
 
 [tool.setuptools]
 packages = ["python_di"]
