@@ -13,6 +13,7 @@ from python_di.reflect_scanner.file_parser import ASTNodeParser, FileParser
 from python_di.reflect_scanner.program_parser_connector import ProgramParserConnectorArgs, ProgramParserConnector, \
     get_module
 from python_di.reflection.resolve_src import ImportResolver, ImportType
+from python_di.reflect_scanner.import_resolver.language_import_resolver import ImportResolverFactory, LanguageDetector
 
 
 class InclusionCriteria(abc.ABC):
@@ -177,13 +178,17 @@ class ProgramParser:
                 else:
                     try:
                         if self.do_include_predicate(node):
-                            resolved = ImportResolver.resolve_module_import(import_type, node, source)
-                            self.assert_resolved_type(resolved)
+                            resolver = ImportResolverFactory.get_resolver(source)
+                            if resolver:
+                                resolved = resolver.resolve_module_import(import_type, node, source)
+                            else:
+                                resolved = ImportResolver.resolve_module_import(import_type, node, source)
+                                self.assert_resolved_type(resolved)
                         else:
                             return None
-                        if isinstance(resolved, typing.Collection):
+                        if isinstance(resolved, typing.Collection) and not isinstance(resolved, str):
                             for resolve in resolved:
-                                self.assert_resolved_type(resolved)
+                                self.assert_resolved_type(resolve)
                                 self.add_to_dep(edges_to_add, program_graph, resolve, source)
                         else:
                             self.add_to_dep(edges_to_add, program_graph, resolved, source)
@@ -211,13 +216,19 @@ class ProgramParser:
         return any([criteria.do_include(name) for criteria in self.module_inclusion_criteria])
 
     def add_to_dep(self, edges_to_add, program_graph, resolved, source):
-        resolved = ProgramNode(NodeType.MODULE, resolved, resolved)
+        # For cross-language support, ensure resolved is a proper path
+        if isinstance(resolved, str):
+            resolved_path = resolved
+        else:
+            resolved_path = str(resolved)
+
+        resolved_node = ProgramNode(NodeType.MODULE, resolved_path, resolved_path)
         program_src = ProgramNode(NodeType.MODULE, source, source)
-        program_graph.add_node(resolved)
-        program_graph.add_edge(program_src, resolved)
+        program_graph.add_node(resolved_node)
+        program_graph.add_edge(program_src, resolved_node)
         edges_to_add.append((FileNode(NodeType.MODULE, program_src.source_file),
-                             FileNode(NodeType.MODULE, resolved.source_file)))
-        self.add_dependency_graphs(resolved.source_file)
+                             FileNode(NodeType.MODULE, resolved_node.source_file)))
+        self.add_dependency_graphs(resolved_node.source_file)
 
 
 def is_node_in_module(module_name, mod_to_import):
@@ -228,6 +239,7 @@ def is_node_in_module(module_name, mod_to_import):
 def determine_import_type(node: Import | ImportFrom):
     """
     Determines the type of import statement for a given AST node.
+    Works with both Python and other language imports that have been converted to the Python AST format.
 
     Parameters:
         node (ast.Import or ast.ImportFrom): An AST node representing an import statement.

@@ -19,7 +19,8 @@ dependencies=[
     "transformers==4.48.0",
     "typing_extensions==4.12.2",
     "pytest==8.3.4",
-    "drools_py"
+    "drools_py",
+    "antlr4-python3-runtime==4.13.2"
 ]
 
 keywords = ["commit-diff-context", "model-context-protocol"]

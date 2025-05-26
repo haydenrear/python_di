@@ -15,6 +15,12 @@ class SerializableEnum(enum.Enum):
                 return name
 
 
+class Language(SerializableEnum):
+    PYTHON = auto()
+    JAVA = auto()
+    UNKNOWN = auto()
+
+
 class GraphElement(Enum):
     NODE = auto()
     EDGE = auto()
@@ -262,6 +268,7 @@ class Import(FileNode):
         super().__init__(NodeType.IMPORT, self.import_str)
         self.as_name = as_name
         self.name = name
+        self.language = Language.UNKNOWN  # Will be set by ImportParser
 
     def __hash__(self):
         return hash((self.import_str, tuple(self.name), tuple(self.as_name)))
@@ -281,6 +288,7 @@ class ImportFrom(FileNode):
         self.module = module
         self.as_name = as_name
         self.name = name
+        self.language = Language.UNKNOWN  # Will be set by ImportParser
 
     def __hash__(self):
         return hash((self.import_str, tuple(self.name), tuple(self.as_name), self.module, self.level))
