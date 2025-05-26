@@ -31,7 +31,7 @@ class ModuleScannerTest(unittest.TestCase):
             print(n)
         assert self.parser.file_graphs
         assert self.parser.program_graph
-        self.torch_file = 'lib/python3.10/site-packages/torch/nn/__init__.py'
+        self.torch_file = 'lib/python3.11/site-packages/torch/nn/__init__.py'
 
     def test_module_import(self):
         imported = importlib.import_module('torch.nn')
@@ -51,7 +51,7 @@ class ModuleScannerTest(unittest.TestCase):
         assert self.contains_node_with_filename(
             self.parser, self.torch_file)
         assert self.contains_node_with_filename(
-            self.parser, 'lib/python3.10/site-packages/torch')
+            self.parser, 'lib/python3.11/site-packages/torch')
 
         self.class_base_dependency_same_file(self.parser)
 

@@ -1,5 +1,5 @@
-PROJ_HOME="/Users/hayde/IdeaProjects/drools/python_di"
-RESOURCES_DIR="/Users/hayde/IdeaProjects/drools/python_di/resources"
+PROJ_HOME="/Users/hayde/IdeaProjects/drools/python_parent/packages/python_di"
+RESOURCES_DIR="/Users/hayde/IdeaProjects/drools/python_parent/packages/python_di/resources"
 ENV_PROVIDER="python_di.env.env_properties.YamlPropertiesFilesBasedEnvironment"
 PYTHON_PROFILES_ACTIVE="test"
-FILE_SYSTEM_PATH="/Users/hayde/IdeaProjects/drools/python_di/test_work"
+FILE_SYSTEM_PATH="/Users/hayde/IdeaProjects/drools/python_parent/packages/python_di/test_work"
