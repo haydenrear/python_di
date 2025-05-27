@@ -374,8 +374,6 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
                     self.registered_properties.add('profiles')
                     return by_ty
 
-
-
     def _do_register_add_props(self, ty: type[ConfigurationProperties], yml_file: str,
                                prefix_name: str, profile_name: Profile) -> Optional:
         with open(f"{yml_file}", "r") as props:

@@ -96,7 +96,7 @@ class PropertySource(Ordered):
     def _do_set_secrets(self, config_prop: pydantic.BaseModel):
         for f, model_found in config_prop.model_fields.items():
             model_found = getattr(config_prop, f)
-            if isinstance(model_found, str | int | float):
+            if isinstance(model_found, str):
                 if '{{X_' in model_found:
                     split = next(iter([i for i in model_found.split('{{') if i.startswith('X_')]))
                     split = next(iter([i for i in split.split('}}') if i.startswith('X_')]))
