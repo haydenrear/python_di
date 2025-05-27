@@ -1,19 +1,17 @@
-import asyncio
 import collections
 import os
 import typing
-import uuid
 from typing import Optional
 
+import asyncio
 import yaml
-from python_di.env import main_profile
 
-from python_util.collections.collection_util import collect_multimap
+from python_di.env import main_profile
 from python_di.env.base_env_properties import PropertyPrefix, Environment
-from python_di.env.main_profile import DEFAULT_PROFILE
 from python_di.env.base_module_config_props import ConfigurationProperties
 from python_di.env.env_factories import Factories, Factory
 from python_di.env.init_env import import_load
+from python_di.env.main_profile import DEFAULT_PROFILE
 from python_di.env.profile import Profile
 from python_di.env.profile_config_props import ProfileProperties
 from python_di.env.properties_loader import PropertyLoader
@@ -30,9 +28,14 @@ YAML_ENV_PRIORITY: int = 1
 class YamlPropertiesFilesBasedEnvironment(Environment):
 
     def __init__(self):
+        self._env_overrides = {
+            k:v for k,v in os.environ.items()
+            if k and k.startswith('X_')
+        }
         self._profiles: Optional[ProfileProperties] = None
         self._factories: Optional[Factories] = None
         self._factories_locks: dict[str, asyncio.Event] = {}
+
         for k, v in os.environ.items():
             LoggerFacade.info(f'{k}: {v}')
         if "RESOURCES_DIR" in os.environ.keys():
@@ -75,7 +78,7 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
             props = self.create_get_props(profile)
         else:
             profile = self.default_profile()
-            props = PropertySource(profile)
+            props = PropertySource(profile, secrets_overrides=self._env_overrides)
 
         if profile not in self.config_properties.keys():
             self.config_properties[profile] = props
@@ -96,6 +99,7 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
             else:
                 LoggerFacade.error(f"Could not read property values of type {type(property_values)}.")
 
+
     def _register_property_source_props(self, prefix_name, property_values):
         for p in property_values.rev_idx.keys():
             self._register_prop(p, prefix_name)
@@ -110,7 +114,7 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
         if profile in self.config_properties.keys():
             props = self.config_properties[profile]
         else:
-            props = PropertySource(profile)
+            props = PropertySource(profile, secrets_overrides=self._env_overrides)
             self.config_properties[profile] = props
         return props
 
@@ -157,11 +161,11 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
         self._profiles = profiles
         for p in self.profiles_iter():
             if p not in self.config_properties.keys():
-                self.config_properties[p] = PropertySource(p)
+                self.config_properties[p] = PropertySource(p, secrets_overrides=self._env_overrides)
 
         default_profile = self.default_profile()
         if default_profile not in self.config_properties.keys():
-            self.config_properties[default_profile] = PropertySource(default_profile)
+            self.config_properties[default_profile] = PropertySource(default_profile, secrets_overrides=self._env_overrides)
 
     @property
     def config_properties(self):
@@ -331,13 +335,13 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
             profile = self.retrieve_profile(profile_name)
             if profile_name not in self.config_properties:
                 if profile is not None and profile not in self.config_properties.keys():
-                    self.config_properties[profile] = PropertySource(profile)
+                    self.config_properties[profile] = PropertySource(profile, secrets_overrides=self._env_overrides)
                 else:
                     LoggerFacade.warn(
                         f"Retrieved properties for profile {profile_name} that did not exist in profiles.")
                     profile = self.default_profile()
                     if profile not in self.config_properties.keys():
-                        self.config_properties[profile] = PropertySource(profile)
+                        self.config_properties[profile] = PropertySource(profile, secrets_overrides=self._env_overrides)
 
             load_props = self._do_register_add_props(ty, yml_file, prefix_name, profile)
             if load_props is not None:
@@ -365,7 +369,7 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
                     assert by_ty is not None, (f"profiles had property that was None for {ProfileProperties} and {yml_file}. "
                                                f"There may be a property missing.")
                     LoggerFacade.info(f"Successfully loaded props: profiles from {yml_file}.")
-                    self.config_properties[Environment.default_profile()] = PropertySource(Environment.default_profile())
+                    self.config_properties[Environment.default_profile()] = PropertySource(Environment.default_profile(), secrets_overrides=self._env_overrides)
                     self.config_properties[Environment.default_profile()].add_config_property('profiles', by_ty)
                     self.registered_properties.add('profiles')
                     return by_ty
@@ -385,7 +389,7 @@ class YamlPropertiesFilesBasedEnvironment(Environment):
                                                f"There may be a property missing.")
                     if profile_name not in self.config_properties.keys():
                         LoggerFacade.debug(f"Creating config property for {profile_name}: {by_ty}.")
-                        self.config_properties[profile_name] = PropertySource(profile_name)
+                        self.config_properties[profile_name] = PropertySource(profile_name, secrets_overrides=self._env_overrides)
                         self.config_properties[profile_name].add_config_property(prefix_name, by_ty)
                     else:
                         LoggerFacade.debug(f"Merging config property for {profile_name}: {by_ty} with "

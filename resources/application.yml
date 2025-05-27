@@ -4,6 +4,8 @@ env_factories:
       lazy: False
     - factory: python_di.inject.reflectable_ctx.ReflectableCtx
       lazy: False
+okay:
+  whatever: '{{X_WHATEVER}}'
 scanner:
   src_file: '/Users/hayde/IdeaProjects/drools/python_parent/packages/python_di/test/reflection_tests/__init__.py'
   num_up: 0
