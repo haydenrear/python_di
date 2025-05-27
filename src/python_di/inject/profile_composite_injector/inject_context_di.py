@@ -61,6 +61,8 @@ def retrieve_descriptor(value: typing.Union[typing.Type, str],
         return f
     if injection_descriptor.skip_if_optional and is_optional_ty(value):
         return None
+    if injection_descriptor.injection_ty == InjectionType.Provided:
+        return None
     if injection_descriptor.injection_ty == InjectionType.Property:
         assert value == str or value == typing.Optional[str]
         assert key is not None
